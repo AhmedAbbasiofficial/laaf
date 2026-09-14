@@ -1,12 +1,15 @@
 /**
- * Shopify Client Credentials Grant — server-side token helper.
+ * Shopify Admin API authentication helper.
  *
- * Exchanges Client ID + Client Secret for a lifetime Admin API access token.
- * Token is fetched once per server cold start and cached in memory.
+ * Priority:
+ * 1. Offline access token from OAuth (permanent, from .data/shopify-token.json or SHOPIFY_OFFLINE_ACCESS_TOKEN env)
+ * 2. Client Credentials Grant (24-hour, fallback)
  *
- * POST https://{shop}.myshopify.com/admin/oauth/access_token
- * Body: grant_type=client_credentials&client_id=...&client_secret=...
+ * For orderCreate, an offline access token is required.
  */
+
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
 
 const SHOP = (
   process.env.SHOPIFY_SHOP ?? ""
@@ -15,19 +18,45 @@ const SHOP = (
 const CLIENT_ID = process.env.SHOPIFY_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET ?? "";
 
-// ── In-memory token cache (server-only, never exposed to browser) ──
-let cachedToken: string | null = null;
+// ── Client Credentials token cache ──
+let ccToken: string | null = null;
+let ccTokenExpiresAt = 0;
+const CC_REFRESH_BUFFER_MS = 60_000;
 
 /**
- * Get the Shopify Admin API access token using the Client Credentials Grant.
- * Token is lifetime — fetched once and cached for the server's lifetime.
+ * Read the offline access token from the OAuth flow.
+ * Checks .data/shopify-token.json first, then SHOPIFY_OFFLINE_ACCESS_TOKEN env var.
  */
-export async function getShopifyAdminAccessToken(): Promise<string> {
-  if (cachedToken) return cachedToken;
+function getOfflineAccessToken(): string | null {
+  // 1. Check environment variable
+  const envToken = process.env.SHOPIFY_OFFLINE_ACCESS_TOKEN;
+  if (envToken) return envToken;
 
-  if (!SHOP) throw new Error("SHOPIFY_SHOP environment variable is not set");
-  if (!CLIENT_ID) throw new Error("SHOPIFY_CLIENT_ID environment variable is not set");
-  if (!CLIENT_SECRET) throw new Error("SHOPIFY_CLIENT_SECRET environment variable is not set");
+  // 2. Check .data/shopify-token.json
+  const tokenPath = join(process.cwd(), ".data", "shopify-token.json");
+  if (existsSync(tokenPath)) {
+    try {
+      const data = JSON.parse(readFileSync(tokenPath, "utf-8"));
+      if (data.access_token) return data.access_token;
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get a Client Credentials Grant token (24-hour, fallback only).
+ */
+async function getClientCredentialsToken(): Promise<string> {
+  if (ccToken && Date.now() < ccTokenExpiresAt - CC_REFRESH_BUFFER_MS) {
+    return ccToken;
+  }
+
+  if (!SHOP) throw new Error("SHOPIFY_SHOP not set");
+  if (!CLIENT_ID) throw new Error("SHOPIFY_CLIENT_ID not set");
+  if (!CLIENT_SECRET) throw new Error("SHOPIFY_CLIENT_SECRET not set");
 
   const response = await fetch(`https://${SHOP}.myshopify.com/admin/oauth/access_token`, {
     method: "POST",
@@ -41,28 +70,47 @@ export async function getShopifyAdminAccessToken(): Promise<string> {
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    console.error(`[LAAF] Shopify token request failed (${response.status}):`, body);
+    console.error(`[LAAF] Client Credentials token request failed (${response.status}):`, body);
     throw new Error(`Shopify authentication failed: ${response.status}`);
   }
 
   const data = (await response.json()) as {
     access_token?: string;
+    expires_in?: number;
     error?: string;
-    error_description?: string;
   };
 
-  if (data.error) {
-    console.error("[LAAF] Shopify token error:", data.error, data.error_description);
+  if (data.error || !data.access_token) {
     throw new Error(`Shopify auth error: ${data.error}`);
   }
 
-  if (!data.access_token) {
-    console.error("[LAAF] Shopify token response missing access_token:", data);
-    throw new Error("Shopify returned no access token");
-  }
+  ccToken = data.access_token;
+  ccTokenExpiresAt = Date.now() + (data.expires_in ?? 86399) * 1000;
+  return ccToken;
+}
 
-  cachedToken = data.access_token;
-  return cachedToken;
+/**
+ * Get a valid Shopify Admin API access token.
+ * Returns the offline access token if available (permanent),
+ * otherwise falls back to Client Credentials Grant (24-hour).
+ *
+ * WARNING: orderCreate requires an offline access token.
+ * If only a Client Credentials token is available, orderCreate will fail.
+ */
+export async function getShopifyAdminAccessToken(): Promise<string> {
+  const offlineToken = getOfflineAccessToken();
+  if (offlineToken) return offlineToken;
+
+  console.warn("[LAAF] No offline access token found. Falling back to Client Credentials (24h). orderCreate may fail.");
+  return getClientCredentialsToken();
+}
+
+/**
+ * Check whether a valid offline access token is available.
+ * Use this to determine if orderCreate will work.
+ */
+export function hasOfflineAccessToken(): boolean {
+  return getOfflineAccessToken() !== null;
 }
 
 /**
