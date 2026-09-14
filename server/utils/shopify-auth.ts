@@ -1,12 +1,11 @@
 /**
  * Shopify Client Credentials Grant — server-side token helper.
  *
- * Follows the current Shopify 2026 documentation:
- * https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/client-credentials-grant
+ * Exchanges Client ID + Client Secret for a lifetime Admin API access token.
+ * Token is fetched once per server cold start and cached in memory.
  *
  * POST https://{shop}.myshopify.com/admin/oauth/access_token
  * Body: grant_type=client_credentials&client_id=...&client_secret=...
- * Token lifetime: 24 hours (86399s). Refresh by requesting again.
  */
 
 const SHOP = (
@@ -18,39 +17,19 @@ const CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET ?? "";
 
 // ── In-memory token cache (server-only, never exposed to browser) ──
 let cachedToken: string | null = null;
-let tokenExpiresAt = 0;
-
-// Refresh 60 seconds before expiry for safety margin
-const REFRESH_BUFFER_MS = 60_000;
 
 /**
- * Get a valid Shopify Admin API access token using the Client Credentials Grant.
- * Caches the token server-side and refreshes before expiry.
- *
- * @returns A valid access token string
- * @throws If credentials are missing or the token request fails
+ * Get the Shopify Admin API access token using the Client Credentials Grant.
+ * Token is lifetime — fetched once and cached for the server's lifetime.
  */
 export async function getShopifyAdminAccessToken(): Promise<string> {
-  // ── 1. Validate environment variables ──
-  if (!SHOP) {
-    throw new Error("SHOPIFY_SHOP environment variable is not set");
-  }
-  if (!CLIENT_ID) {
-    throw new Error("SHOPIFY_CLIENT_ID environment variable is not set");
-  }
-  if (!CLIENT_SECRET) {
-    throw new Error("SHOPIFY_CLIENT_SECRET environment variable is not set");
-  }
+  if (cachedToken) return cachedToken;
 
-  // ── 2. Return cached token if still valid ──
-  if (cachedToken && Date.now() < tokenExpiresAt - REFRESH_BUFFER_MS) {
-    return cachedToken;
-  }
+  if (!SHOP) throw new Error("SHOPIFY_SHOP environment variable is not set");
+  if (!CLIENT_ID) throw new Error("SHOPIFY_CLIENT_ID environment variable is not set");
+  if (!CLIENT_SECRET) throw new Error("SHOPIFY_CLIENT_SECRET environment variable is not set");
 
-  // ── 3. Request new token from Shopify ──
-  const tokenUrl = `https://${SHOP}.myshopify.com/admin/oauth/access_token`;
-
-  const response = await fetch(tokenUrl, {
+  const response = await fetch(`https://${SHOP}.myshopify.com/admin/oauth/access_token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -68,8 +47,6 @@ export async function getShopifyAdminAccessToken(): Promise<string> {
 
   const data = (await response.json()) as {
     access_token?: string;
-    scope?: string;
-    expires_in?: number;
     error?: string;
     error_description?: string;
   };
@@ -84,16 +61,12 @@ export async function getShopifyAdminAccessToken(): Promise<string> {
     throw new Error("Shopify returned no access token");
   }
 
-  // ── 4. Cache the token with its expiry ──
   cachedToken = data.access_token;
-  tokenExpiresAt = Date.now() + (data.expires_in ?? 86399) * 1000;
-
   return cachedToken;
 }
 
 /**
  * Make an authenticated Shopify Admin GraphQL request.
- * Automatically handles token acquisition and refresh.
  */
 export async function shopifyAdminGraphQL<T>(
   query: string,
@@ -101,9 +74,7 @@ export async function shopifyAdminGraphQL<T>(
 ): Promise<T> {
   const token = await getShopifyAdminAccessToken();
 
-  const url = `https://${SHOP}.myshopify.com/admin/api/2026-07/graphql.json`;
-
-  const res = await fetch(url, {
+  const res = await fetch(`https://${SHOP}.myshopify.com/admin/api/2026-07/graphql.json`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
