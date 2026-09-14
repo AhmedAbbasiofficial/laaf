@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Shell } from "@/components/site/Section";
 import { useStore } from "@/lib/store";
-import { getProduct, formatPrice } from "@/lib/products";
+import { getProduct, formatPrice, getActiveProducts, isShopifyLoading, onShopifyDataReady } from "@/lib/products";
 
 export const Route = createFileRoute("/cart")({
   head: () => ({
@@ -15,7 +15,28 @@ export const Route = createFileRoute("/cart")({
 });
 
 function Cart() {
-  const { bag, setQty, removeFromBag } = useStore();
+  const { bag, setQty, removeFromBag, hydrated } = useStore();
+  const [shopifyReady, setShopifyReady] = useState(() => !isShopifyLoading() && getActiveProducts().length > 0);
+
+  useEffect(() => {
+    if (shopifyReady) return;
+    return onShopifyDataReady(() => setShopifyReady(true));
+  }, [shopifyReady]);
+
+  const productsReady = shopifyReady;
+
+  if (!hydrated || !productsReady) {
+    return (
+      <Shell className="py-20 md:py-28">
+        <div className="text-center">
+          <p className="font-serif text-2xl">Loading your bag…</p>
+          <p className="pt-3 text-sm text-muted-foreground">
+            Preparing your shopping bag.
+          </p>
+        </div>
+      </Shell>
+    );
+  }
 
   const items = bag.map((i) => ({ ...i, product: getProduct(i.slug) }));
 

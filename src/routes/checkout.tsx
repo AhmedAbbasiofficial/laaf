@@ -1,8 +1,8 @@
 ﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Loader2, Lock, Truck, Shield, RefreshCw, Banknote } from "lucide-react";
 import { useStore, type BagItem } from "@/lib/store";
-import { getProduct, formatPrice } from "@/lib/products";
+import { getProduct, formatPrice, getActiveProducts, isShopifyLoading, onShopifyDataReady } from "@/lib/products";
 import { calculateShipping } from "@/lib/shipping";
 import { cn } from "@/lib/utils";
 import { resolveVariantId } from "@/lib/shopify/cart-bridge";
@@ -49,8 +49,16 @@ function validate(form: CheckoutForm, items: BagItem[]): FormErrors {
 }
 
 function Checkout() {
-  const { bag, clearBag } = useStore();
+  const { bag, clearBag, hydrated } = useStore();
   const navigate = useNavigate();
+  const [shopifyReady, setShopifyReady] = useState(() => !isShopifyLoading() && getActiveProducts().length > 0);
+
+  useEffect(() => {
+    if (shopifyReady) return;
+    return onShopifyDataReady(() => setShopifyReady(true));
+  }, [shopifyReady]);
+
+  const productsReady = shopifyReady;
 
   const [form, setForm] = useState<CheckoutForm>({
     firstName: "",
@@ -230,6 +238,33 @@ function Checkout() {
     },
     [form, bag, subtotal, shippingCost, total, clearBag, navigate],
   );
+
+  if (!hydrated || !productsReady) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="border-b border-border">
+          <div className="mx-auto flex max-w-[1440px] items-center justify-center py-5 px-4">
+            <Link to="/" aria-label="LAAF — home">
+              <img
+                src={laafLogo}
+                alt="LAAF"
+                className="h-[40px] md:h-[46px] w-auto object-contain"
+              />
+            </Link>
+          </div>
+        </div>
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-foreground" />
+            <p className="mt-4 font-serif text-[1.5rem] text-foreground">Loading your bag…</p>
+            <p className="mt-2 text-[0.85rem] text-muted-foreground">
+              Preparing your checkout.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (items.length === 0 && !submitting) {
     return (
