@@ -4,6 +4,7 @@ import { defineNitroConfig } from "nitro/config";
 // Production deployment (Vercel) sets NITRO_PRESET=vercel at build time.
 export default defineNitroConfig({
   preset: (process.env.NITRO_PRESET as any) || "node-server",
+  scanDirs: ["server"],
   vercel: {
     config: {
       functions: {

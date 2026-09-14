@@ -50,7 +50,7 @@ async function getActiveCart(): Promise<ShopifyCart | null> {
  * Resolve a Shopify variant ID from a product slug + length/size.
  * Only returns a variant when Shopify says the variant is available for sale.
  */
-function resolveVariantId(
+export function resolveVariantId(
   product: Product,
   length?: string,
   size?: string,

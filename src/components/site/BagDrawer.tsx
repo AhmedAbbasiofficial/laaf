@@ -27,25 +27,10 @@ export function BagDrawer() {
     return sum + (product ? product.price * item.qty : 0);
   }, 0);
 
-  const handleCheckout = useCallback(async () => {
-    try {
-      const { syncBagToShopifyCart, getCheckoutUrl } = await import("@/lib/shopify/cart-bridge");
-      await syncBagToShopifyCart(
-        bag.map((item) => ({
-          slug: item.slug,
-          size: item.size,
-          ...(item.length !== undefined ? { length: item.length } : {}),
-          qty: item.qty,
-        })),
-      );
-      const url = getCheckoutUrl();
-      if (url) {
-        window.location.href = url;
-        return;
-      }
-    } catch {}
-    window.location.href = "/cart";
-  }, [bag]);
+  const handleCheckout = useCallback(() => {
+    setBagOpen(false);
+    window.location.href = "/checkout";
+  }, [setBagOpen]);
 
   return (
     <div
@@ -123,7 +108,10 @@ export function BagDrawer() {
                 if (!product) return null;
                 const image = product.images[0]!;
                 return (
-                  <li key={`${item.slug}-${item.size}-${item.length || ""}`} className="flex gap-4 py-4">
+                  <li
+                    key={`${item.slug}-${item.size}-${item.length || ""}`}
+                    className="flex gap-4 py-4"
+                  >
                     <Link
                       to="/collection/$slug"
                       params={{ slug: product.slug }}
@@ -172,7 +160,9 @@ export function BagDrawer() {
                           >
                             <Minus className="h-3 w-3" strokeWidth={1.5} />
                           </button>
-                          <span className="w-7 text-center text-[0.72rem] font-medium">{item.qty}</span>
+                          <span className="w-7 text-center text-[0.72rem] font-medium">
+                            {item.qty}
+                          </span>
                           <button
                             type="button"
                             className="grid h-7 w-7 place-items-center hover:bg-muted transition-colors"
@@ -205,7 +195,10 @@ export function BagDrawer() {
               </p>
               <button
                 type="button"
-                onClick={() => { setBagOpen(false); handleCheckout(); }}
+                onClick={() => {
+                  setBagOpen(false);
+                  handleCheckout();
+                }}
                 className="block w-full bg-foreground py-3.5 text-center text-[0.7rem] font-semibold uppercase tracking-wide text-white hover:bg-accent transition-colors"
               >
                 Proceed to Checkout

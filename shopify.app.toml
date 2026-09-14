@@ -7,7 +7,7 @@ embedded = false
 api_version = "2026-07"
 
 [access_scopes]
-scopes = "read_products,write_products,write_files,read_content,write_content,read_script_tags,write_script_tags"
+scopes = "read_products,write_products,write_files,read_content,write_content,read_script_tags,write_script_tags,read_orders,write_orders"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 

@@ -1,5 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { getActiveProducts, onShopifyDataReady, isShopifyLoading, type Product } from "@/lib/products";
+import {
+  getActiveProducts,
+  onShopifyDataReady,
+  isShopifyLoading,
+  type Product,
+} from "@/lib/products";
 import { Reveal } from "./Reveal";
 import { useState, useEffect } from "react";
 
@@ -39,9 +44,7 @@ function ProductTile({ product, label }: { product: Product; label: string }) {
 }
 
 export function TwoProductFeatureSection() {
-  const getPair = () => getActiveProducts().filter((p) =>
-    ["floral-embroidered-abaya-style-01", "bronze-botanical-abaya-style-03"].includes(p.slug)
-  );
+  const getPair = () => getActiveProducts().slice(0, 2);
   const [featurePair, setFeaturePair] = useState(() => getPair());
   const loading = isShopifyLoading();
 

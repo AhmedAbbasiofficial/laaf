@@ -201,8 +201,12 @@
 /* ── Marquee scrolling ────────────────────────────────────────── */
 
 @keyframes marquee-scroll {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 .marquee-track {
@@ -252,10 +256,10 @@
     min-height: 270px;
     height: 270px;
   }
+}
 
-  .collection-card-hijab-image {
-    object-position: 50% 35%;
-  }
+.collection-card-third img {
+  object-position: center 25%;
 }
 
 /* ── Star rating ─────────────────────────────────────────────── */
@@ -326,7 +330,7 @@
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -340,7 +344,7 @@
 }
 
 .nav-link::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -2px;
   left: 0;

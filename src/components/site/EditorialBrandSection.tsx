@@ -70,9 +70,7 @@ export function EditorialBrandSection({
               >
                 {heading}
               </h2>
-              <p className="mt-3 text-[0.74rem] leading-[1.45] text-foreground/60 max-w-[260px]">
-                {description}
-              </p>
+              <p className="mt-3 text-[0.74rem] leading-[1.45] text-foreground/60">{description}</p>
               <Link
                 to={ctaUrl as any}
                 className="mt-4 text-[0.76rem] font-normal tracking-wide text-foreground hover:text-accent transition-colors"
@@ -124,9 +122,7 @@ export function EditorialBrandSection({
               >
                 {heading}
               </h2>
-              <p className="mt-3 text-[0.72rem] leading-[1.45] text-foreground/60">
-                {description}
-              </p>
+              <p className="mt-3 text-[0.72rem] leading-[1.45] text-foreground/60">{description}</p>
               <Link
                 to={ctaUrl as any}
                 className="mt-4 text-[0.72rem] font-normal tracking-wide text-foreground hover:text-accent transition-colors"
