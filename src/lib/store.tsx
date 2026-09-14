@@ -37,8 +37,10 @@ const BAG_KEY = "noorat.bag";
 const WISH_KEY = "noorat.wishlist";
 
 function read<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined" || !window.localStorage) return fallback;
+
   try {
-    const raw = localStorage.getItem(key);
+    const raw = window.localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
@@ -51,6 +53,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [bagOpen, setBagOpen] = useState(false);
 
+  // Hydrate from localStorage AFTER mount (client-only, never runs on server)
   useEffect(() => {
     setBag(read<BagItem[]>(BAG_KEY, []));
     setWishlist(read<string[]>(WISH_KEY, []));
@@ -58,12 +61,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (hydrated) localStorage.setItem(BAG_KEY, JSON.stringify(bag));
+    if (hydrated) window.localStorage.setItem(BAG_KEY, JSON.stringify(bag));
   }, [bag, hydrated]);
 
   // Debounced sync to Shopify cart on bag changes
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevBagRef = useRef<string>("");
+
+  // After hydration, initialize prevBagRef to the current bag so the sync effect
+  // doesn't treat the initial hydration load as a "change" and clear the Shopify cart.
+  useEffect(() => {
+    if (hydrated) {
+      prevBagRef.current = JSON.stringify(bag);
+    }
+  }, [hydrated]); // intentionally runs only when hydrated transitions true
 
   useEffect(() => {
     if (!hydrated) return;
@@ -86,33 +97,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [bag, hydrated]);
 
   useEffect(() => {
-    if (hydrated) localStorage.setItem(WISH_KEY, JSON.stringify(wishlist));
+    if (hydrated && typeof window !== "undefined" && window.localStorage) {
+      window.localStorage.setItem(WISH_KEY, JSON.stringify(wishlist));
+    }
   }, [wishlist, hydrated]);
 
   const addToBag = useCallback((slug: string, size: string, length?: string, qty = 1) => {
     setBag((prev) => {
       const found = prev.find((i) => i.slug === slug && i.size === size && i.length === length);
-      if (found)
-        return prev.map((i) =>
-          i.slug === slug && i.size === size && i.length === length ? { ...i, qty: i.qty + qty } : i,
-        );
-      const newItem: BagItem = length !== undefined
-        ? { slug, size, length, qty }
-        : { slug, size, qty };
-      return [...prev, newItem];
+      const next = found
+        ? prev.map((i) =>
+            i.slug === slug && i.size === size && i.length === length ? { ...i, qty: i.qty + qty } : i,
+          )
+        : [...prev, length !== undefined
+            ? { slug, size, length, qty }
+            : { slug, size, qty }];
+      try { window.localStorage.setItem(BAG_KEY, JSON.stringify(next)); } catch {}
+      return next;
     });
   }, []);
 
   const setQty = useCallback((slug: string, size: string, length: string | undefined, qty: number) => {
-    setBag((prev) =>
-      qty <= 0
+    setBag((prev) => {
+      const next = qty <= 0
         ? prev.filter((i) => !(i.slug === slug && i.size === size && i.length === length))
-        : prev.map((i) => (i.slug === slug && i.size === size && i.length === length ? { ...i, qty } : i)),
-    );
+        : prev.map((i) => (i.slug === slug && i.size === size && i.length === length ? { ...i, qty } : i));
+      try { window.localStorage.setItem(BAG_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
   }, []);
 
   const removeFromBag = useCallback((slug: string, size: string, length?: string) => {
-    setBag((prev) => prev.filter((i) => !(i.slug === slug && i.size === size && i.length === length)));
+    setBag((prev) => {
+      const next = prev.filter((i) => !(i.slug === slug && i.size === size && i.length === length));
+      try { window.localStorage.setItem(BAG_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
   }, []);
 
   const toggleWishlist = useCallback((slug: string) => {
@@ -131,7 +151,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addToBag,
       setQty,
       removeFromBag,
-      clearBag: () => setBag([]),
+      clearBag: () => { setBag([]); try { window.localStorage.setItem(BAG_KEY, "[]"); } catch {} },
       toggleWishlist,
       isWished: (slug: string) => wishlist.includes(slug),
       bagOpen,

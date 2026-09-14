@@ -285,6 +285,27 @@ function ProductPage() {
     }
     setLengthError("");
 
+    // Compute the updated bag and persist to localStorage SYNCHRONOUSLY
+    // before the full-page reload destroys the React tree.
+    // addToBag may not flush its localStorage write before navigation,
+    // so we do it manually here.
+    const BAG_KEY = "noorat.bag";
+    let currentBag: { slug: string; size: string; length?: string; qty: number }[] = [];
+    try { currentBag = JSON.parse(window.localStorage.getItem(BAG_KEY) || "[]"); } catch {}
+    const found = currentBag.find(
+      (i) => i.slug === product.slug && i.size === "One Size" && i.length === length,
+    );
+    const newBag = found
+      ? currentBag.map((i) =>
+          i.slug === product.slug && i.size === "One Size" && i.length === length
+            ? { ...i, qty: i.qty + qty }
+            : i,
+        )
+      : [...currentBag, length !== undefined
+          ? { slug: product.slug, size: "One Size", length, qty }
+          : { slug: product.slug, size: "One Size", qty }];
+    try { window.localStorage.setItem(BAG_KEY, JSON.stringify(newBag)); } catch {}
+
     addToBag(product.slug, "One Size", length, qty);
 
     window.location.href = "/checkout";
