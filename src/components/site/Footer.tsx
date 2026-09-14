@@ -281,7 +281,7 @@ export function Footer() {
                 </li>
               ))}
             </ul>
-            <h2 className="mt-8 mb-5 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-white/50 lg:mt-0">
+            <h2 className="mt-8 mb-5 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-white/50">
               Company
             </h2>
             <ul className="space-y-3">

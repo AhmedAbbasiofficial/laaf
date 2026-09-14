@@ -48,15 +48,15 @@ function read<T>(key: string, fallback: T): T {
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [bag, setBag] = useState<BagItem[]>([]);
-  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [bag, setBag] = useState<BagItem[]>(() => read<BagItem[]>(BAG_KEY, []));
+  const [wishlist, setWishlist] = useState<string[]>(() => read<string[]>(WISH_KEY, []));
   const [hydrated, setHydrated] = useState(false);
   const [bagOpen, setBagOpen] = useState(false);
 
-  // Hydrate from localStorage AFTER mount (client-only, never runs on server)
+  // Seed the authoritative LAAF bag and wishlist from the browser
+  // localStorage keys synchronously so the checkout route never sees an
+  // empty bag during the render that should be using the persisted cart.
   useEffect(() => {
-    setBag(read<BagItem[]>(BAG_KEY, []));
-    setWishlist(read<string[]>(WISH_KEY, []));
     setHydrated(true);
   }, []);
 

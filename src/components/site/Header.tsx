@@ -15,6 +15,18 @@ const nav: { label: string; href: string; accent?: boolean }[] = [
   { label: "MODEST CO-ORD", href: "/collections/modest-co-ord" },
 ];
 
+const mobileShopLinks = [
+  { label: "All Abayas", to: "/collection" },
+  { label: "Sale", to: "/collection?sale=1" },
+  { label: "New Arrivals", to: "/collection?fresh=1" },
+];
+
+const mobileCompanyLinks = [
+  { label: "About Us", to: "/about" },
+  { label: "Contact Us", to: "/contact" },
+  { label: "Our Craftsmanship", to: "/signature-details" },
+];
+
 const SUGGESTION_LIMIT = 6;
 
 function SearchOverlay({ onClose }: { onClose: () => void }) {
@@ -307,45 +319,48 @@ export function Header() {
           />
           <div
             className={cn(
-              "absolute inset-y-0 left-0 flex w-[80%] max-w-[320px] flex-col bg-white transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              "absolute inset-y-0 left-0 flex w-[82%] max-w-[340px] flex-col overflow-y-auto bg-[#111111] px-6 py-8 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
               mobileOpen ? "translate-x-0" : "-translate-x-full",
             )}
           >
-            <div className="flex h-[64px] items-center justify-between border-b border-border px-5">
-              <span className="font-serif text-lg">Menu</span>
-              <button
-                type="button"
-                onClick={() => setMobileOpen(false)}
-                className="grid h-10 w-10 place-items-center hover:bg-muted transition-colors"
-                aria-label="Close menu"
-              >
-                <X className="h-5 w-5" strokeWidth={1.5} />
-              </button>
-            </div>
-            <nav aria-label="Mobile" className="flex flex-col overflow-y-auto flex-1">
-              {nav.map((item) => (
-                <a
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              className="absolute right-5 top-5 grid h-8 w-8 place-items-center text-zinc-400 hover:text-white transition-colors"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" strokeWidth={1.5} />
+            </button>
+
+            <nav aria-label="Mobile" className="mt-14 flex flex-col gap-3">
+              <div className="text-[0.82rem] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                Shop
+              </div>
+              {mobileShopLinks.map((item) => (
+                <Link
                   key={item.label}
-                  href={item.href}
+                  to={item.to}
                   onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    "border-b border-border px-5 py-3.5 text-sm font-medium hover:bg-muted transition-colors",
-                    item.accent ? "text-sale" : "text-foreground",
-                  )}
+                  className="text-[1.15rem] font-medium leading-8 text-zinc-300 transition-colors hover:text-white"
                 >
                   {item.label}
-                </a>
+                </Link>
               ))}
 
+              <div className="mt-6 text-[0.82rem] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                Company
+              </div>
+              {mobileCompanyLinks.map((item) => (
+                <Link
+                  key={item.label}
+                  to={item.to}
+                  onClick={() => setMobileOpen(false)}
+                  className="text-[1.15rem] font-medium leading-8 text-zinc-300 transition-colors hover:text-white"
+                >
+                  {item.label}
+                </Link>
+              ))}
             </nav>
-            <div className="border-t border-border px-5 py-4">
-              <a
-                href="/contact"
-                className="block text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Contact Us
-              </a>
-            </div>
           </div>
         </div>
       </header>

@@ -1,6 +1,6 @@
-﻿import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Loader2, Lock, Truck, Shield, RefreshCw, Banknote } from "lucide-react";
+import { Loader2, Lock, Truck, Shield, RefreshCw, Banknote, Building2, Copy, Check } from "lucide-react";
 import { useStore, type BagItem } from "@/lib/store";
 import { getProduct, formatPrice, getActiveProducts, isShopifyLoading, onShopifyDataReady } from "@/lib/products";
 import { calculateShipping } from "@/lib/shipping";
@@ -26,7 +26,6 @@ type CheckoutForm = {
   address: string;
   apartment: string;
   city: string;
-  province: string;
   postalCode: string;
   notes: string;
 };
@@ -43,8 +42,31 @@ function validate(form: CheckoutForm, items: BagItem[]): FormErrors {
   if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Invalid email";
   if (!form.address.trim()) e.address = "Required";
   if (!form.city.trim()) e.city = "Required";
-  if (!form.province.trim()) e.province = "Required";
   if (items.length === 0) e.items = "Your cart is empty";
+  return e;
+}
+
+type ShippingForm = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  address: string;
+  apartment: string;
+  city: string;
+  postalCode: string;
+};
+
+type ShippingErrors = Partial<Record<keyof ShippingForm, string>>;
+
+function validateShipping(form: ShippingForm): ShippingErrors {
+  const e: ShippingErrors = {};
+  if (!form.firstName.trim()) e.firstName = "Required";
+  if (!form.lastName.trim()) e.lastName = "Required";
+  if (!form.phone.trim()) e.phone = "Required";
+  else if (!/^03\d{9}$/.test(form.phone.replace(/\s/g, "")))
+    e.phone = "Enter a valid Pakistani phone (03XXXXXXXXX)";
+  if (!form.address.trim()) e.address = "Required";
+  if (!form.city.trim()) e.city = "Required";
   return e;
 }
 
@@ -68,17 +90,29 @@ function Checkout() {
     address: "",
     apartment: "",
     city: "",
-    province: "",
     postalCode: "",
     notes: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"cod" | "bank_transfer">("cod");
+  const [accountCopied, setAccountCopied] = useState(false);
+  const [shipToDifferentAddress, setShipToDifferentAddress] = useState(false);
+  const [shippingForm, setShippingForm] = useState<ShippingForm>({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    address: "",
+    apartment: "",
+    city: "",
+    postalCode: "",
+  });
+  const [shippingErrors, setShippingErrors] = useState<ShippingErrors>({});
 
   const items = useMemo(
     () => bag.map((i) => ({ ...i, product: getProduct(i.slug) })).filter((i) => i.product),
-    [bag],
+    [bag, productsReady],
   );
 
   const subtotal = useMemo(
@@ -96,6 +130,12 @@ function Checkout() {
     [],
   );
 
+  const setS = useCallback(
+    <K extends keyof ShippingForm>(key: K, val: ShippingForm[K]) =>
+      setShippingForm((prev) => ({ ...prev, [key]: val })),
+    [],
+  );
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -106,6 +146,18 @@ function Checkout() {
       if (Object.keys(errs).length > 0) {
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
+      }
+
+      // Validate alternate shipping address when enabled
+      if (shipToDifferentAddress) {
+        const sErrs = validateShipping(shippingForm);
+        setShippingErrors(sErrs);
+        if (Object.keys(sErrs).length > 0) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+      } else {
+        setShippingErrors({});
       }
 
       setSubmitting(true);
@@ -158,17 +210,28 @@ function Checkout() {
               email: form.email.trim(),
               phone: form.phone.trim(),
             },
-            shippingAddress: {
+            primaryAddress: {
               firstName: form.firstName.trim(),
               lastName: form.lastName.trim(),
               address: form.address.trim(),
               apartment: form.apartment.trim(),
               city: form.city.trim(),
-              province: form.province.trim(),
               postalCode: form.postalCode.trim(),
             },
+            shippingAddress: shipToDifferentAddress
+              ? {
+                  firstName: shippingForm.firstName.trim(),
+                  lastName: shippingForm.lastName.trim(),
+                  phone: shippingForm.phone.trim(),
+                  address: shippingForm.address.trim(),
+                  apartment: shippingForm.apartment.trim(),
+                  city: shippingForm.city.trim(),
+                  postalCode: shippingForm.postalCode.trim(),
+                }
+              : null,
+            shipToDifferentAddress,
             items: lineItems,
-            paymentMethod: "cod",
+            paymentMethod,
             subtotal,
             shippingCost,
             total,
@@ -176,7 +239,17 @@ function Checkout() {
           }),
         });
 
-        const data = await res.json();
+        let data: { success?: boolean; message?: string; orderId?: string; orderNumber?: string; [key: string]: unknown } = {};
+        try {
+          data = await res.json();
+        } catch {
+          // Empty or non-JSON body — surface a clear error instead of "Unexpected end of JSON input"
+          throw new Error(
+            res.ok
+              ? "Server returned an unexpected response. Please try again."
+              : `Server error (${res.status}). Please try again.`,
+          );
+        }
 
         if (!res.ok || !data.success) {
           throw new Error(data.message || "Failed to create order");
@@ -203,7 +276,6 @@ function Checkout() {
             address: form.address.trim(),
             apartment: form.apartment.trim(),
             city: form.city.trim(),
-            province: form.province.trim(),
           },
           items: lineItems.map((li) => ({
             slug: li.slug,
@@ -215,7 +287,7 @@ function Checkout() {
           subtotal,
           shippingCost,
           total,
-          paymentMethod: "cod" as const,
+          paymentMethod,
         };
 
         localStorage.setItem(`laaf_order_${data.orderId}`, JSON.stringify(orderData));
@@ -236,7 +308,7 @@ function Checkout() {
         setSubmitting(false);
       }
     },
-    [form, bag, subtotal, shippingCost, total, clearBag, navigate],
+    [form, bag, subtotal, shippingCost, total, clearBag, navigate, shipToDifferentAddress, shippingForm],
   );
 
   if (!hydrated || !productsReady) {
@@ -403,10 +475,10 @@ function Checkout() {
                 </div>
               </section>
 
-              {/* Shipping Address */}
+              {/* Primary Address */}
               <section>
                 <h2 className="font-serif text-[1.1rem] md:text-[1.3rem] text-foreground mb-5">
-                  Shipping Address
+                  Address
                 </h2>
                 <div className="space-y-4">
                   <div>
@@ -436,7 +508,7 @@ function Checkout() {
                       placeholder="Apartment, suite, etc. (optional)"
                     />
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="block text-[0.7rem] font-medium uppercase tracking-wide text-foreground mb-1.5">
                         City *
@@ -450,21 +522,6 @@ function Checkout() {
                       />
                       {errors.city && (
                         <p className="mt-1 text-[0.7rem] text-red-600">{errors.city}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-[0.7rem] font-medium uppercase tracking-wide text-foreground mb-1.5">
-                        Province *
-                      </label>
-                      <input
-                        type="text"
-                        value={form.province}
-                        onChange={(e) => set("province", e.target.value)}
-                        className={inputClass(errors.province)}
-                        placeholder="Province"
-                      />
-                      {errors.province && (
-                        <p className="mt-1 text-[0.7rem] text-red-600">{errors.province}</p>
                       )}
                     </div>
                     <div>
@@ -483,14 +540,194 @@ function Checkout() {
                 </div>
               </section>
 
+              {/* Ship to a different address? */}
+              <section>
+                <label className="flex cursor-pointer items-center gap-3 select-none group">
+                  <span
+                    className={cn(
+                      "flex h-4 w-4 shrink-0 items-center justify-center border-2 transition-colors",
+                      shipToDifferentAddress
+                        ? "border-foreground bg-foreground"
+                        : "border-border bg-white group-hover:border-foreground/40",
+                    )}
+                  >
+                    {shipToDifferentAddress && (
+                      <svg
+                        className="h-2.5 w-2.5 text-white"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M2 6l3 3 5-5" />
+                      </svg>
+                    )}
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={shipToDifferentAddress}
+                    onChange={(e) => {
+                      setShipToDifferentAddress(e.target.checked);
+                      if (!e.target.checked) setShippingErrors({});
+                    }}
+                  />
+                  <span className="text-[0.82rem] text-foreground">
+                    Ship to a different address?
+                  </span>
+                </label>
+              </section>
+
+              {/* Alternate Shipping Address — shown only when checked */}
+              {shipToDifferentAddress && (
+                <section className="border-l-2 border-foreground/10 pl-4">
+                  <h2 className="font-serif text-[1.1rem] md:text-[1.3rem] text-foreground mb-5">
+                    Shipping Address
+                  </h2>
+                  <div className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-[0.7rem] font-medium uppercase tracking-wide text-foreground mb-1.5">
+                          First Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingForm.firstName}
+                          onChange={(e) => setS("firstName", e.target.value)}
+                          className={inputClass(shippingErrors.firstName)}
+                          placeholder="First name"
+                        />
+                        {shippingErrors.firstName && (
+                          <p className="mt-1 text-[0.7rem] text-red-600">{shippingErrors.firstName}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-[0.7rem] font-medium uppercase tracking-wide text-foreground mb-1.5">
+                          Last Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingForm.lastName}
+                          onChange={(e) => setS("lastName", e.target.value)}
+                          className={inputClass(shippingErrors.lastName)}
+                          placeholder="Last name"
+                        />
+                        {shippingErrors.lastName && (
+                          <p className="mt-1 text-[0.7rem] text-red-600">{shippingErrors.lastName}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[0.7rem] font-medium uppercase tracking-wide text-foreground mb-1.5">
+                        Phone *
+                      </label>
+                      <input
+                        type="tel"
+                        value={shippingForm.phone}
+                        onChange={(e) => setS("phone", e.target.value)}
+                        className={inputClass(shippingErrors.phone)}
+                        placeholder="03XXXXXXXXX"
+                      />
+                      {shippingErrors.phone && (
+                        <p className="mt-1 text-[0.7rem] text-red-600">{shippingErrors.phone}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-[0.7rem] font-medium uppercase tracking-wide text-foreground mb-1.5">
+                        Address *
+                      </label>
+                      <input
+                        type="text"
+                        value={shippingForm.address}
+                        onChange={(e) => setS("address", e.target.value)}
+                        className={inputClass(shippingErrors.address)}
+                        placeholder="Street address"
+                      />
+                      {shippingErrors.address && (
+                        <p className="mt-1 text-[0.7rem] text-red-600">{shippingErrors.address}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-[0.7rem] font-medium uppercase tracking-wide text-foreground mb-1.5">
+                        Apartment, suite, etc.
+                      </label>
+                      <input
+                        type="text"
+                        value={shippingForm.apartment}
+                        onChange={(e) => setS("apartment", e.target.value)}
+                        className={inputClass()}
+                        placeholder="Apartment, suite, etc. (optional)"
+                      />
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-[0.7rem] font-medium uppercase tracking-wide text-foreground mb-1.5">
+                          City *
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingForm.city}
+                          onChange={(e) => setS("city", e.target.value)}
+                          className={inputClass(shippingErrors.city)}
+                          placeholder="City"
+                        />
+                        {shippingErrors.city && (
+                          <p className="mt-1 text-[0.7rem] text-red-600">{shippingErrors.city}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-[0.7rem] font-medium uppercase tracking-wide text-foreground mb-1.5">
+                          Postal Code
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingForm.postalCode}
+                          onChange={(e) => setS("postalCode", e.target.value)}
+                          className={inputClass()}
+                          placeholder="Postal code"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              )}
+
               {/* Payment Method */}
               <section>
                 <h2 className="font-serif text-[1.1rem] md:text-[1.3rem] text-foreground mb-5">
                   Payment Method
                 </h2>
-                <div className="border border-border p-4 bg-muted/20">
-                  <div className="flex items-center gap-3">
-                    <Banknote className="h-5 w-5 text-foreground" strokeWidth={1.5} />
+                <div className="space-y-3">
+                  {/* COD Option */}
+                  <label
+                    className={cn(
+                      "flex items-center gap-3 border p-4 cursor-pointer transition-colors",
+                      paymentMethod === "cod"
+                        ? "border-foreground bg-muted/20"
+                        : "border-border bg-white hover:border-foreground/40",
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="cod"
+                      checked={paymentMethod === "cod"}
+                      onChange={() => setPaymentMethod("cod")}
+                      className="sr-only"
+                    />
+                    <span
+                      className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                        paymentMethod === "cod" ? "border-foreground" : "border-border",
+                      )}
+                    >
+                      {paymentMethod === "cod" && (
+                        <span className="h-2 w-2 rounded-full bg-foreground" />
+                      )}
+                    </span>
+                    <Banknote className="h-5 w-5 text-foreground shrink-0" strokeWidth={1.5} />
                     <div>
                       <p className="text-[0.82rem] font-medium text-foreground">
                         Cash on Delivery (COD)
@@ -499,7 +736,103 @@ function Checkout() {
                         Pay when your order arrives at your doorstep.
                       </p>
                     </div>
-                  </div>
+                  </label>
+
+                  {/* Bank Transfer Option */}
+                  <label
+                    className={cn(
+                      "flex items-start gap-3 border p-4 cursor-pointer transition-colors",
+                      paymentMethod === "bank_transfer"
+                        ? "border-foreground bg-muted/20"
+                        : "border-border bg-white hover:border-foreground/40",
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="bank_transfer"
+                      checked={paymentMethod === "bank_transfer"}
+                      onChange={() => setPaymentMethod("bank_transfer")}
+                      className="sr-only"
+                    />
+                    <span
+                      className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors mt-0.5",
+                        paymentMethod === "bank_transfer" ? "border-foreground" : "border-border",
+                      )}
+                    >
+                      {paymentMethod === "bank_transfer" && (
+                        <span className="h-2 w-2 rounded-full bg-foreground" />
+                      )}
+                    </span>
+                    <Building2 className="h-5 w-5 text-foreground shrink-0 mt-0.5" strokeWidth={1.5} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[0.82rem] font-medium text-foreground">
+                        Bank Transfer
+                      </p>
+                      <p className="text-[0.7rem] text-muted-foreground mt-0.5">
+                        Transfer to our UBL account and send the screenshot.
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Bank Transfer Details (expanded) */}
+                  {paymentMethod === "bank_transfer" && (
+                    <div className="border border-border bg-muted/10 p-4 sm:p-5 space-y-4">
+                      <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-foreground">
+                        Bank Transfer Details
+                      </p>
+                      <div className="space-y-3 text-[0.82rem]">
+                        <div className="flex justify-between items-start gap-2">
+                          <div>
+                            <p className="text-[0.68rem] text-muted-foreground uppercase tracking-wide">Bank Name</p>
+                            <p className="text-foreground font-medium mt-0.5">UBL</p>
+                          </div>
+                        </div>
+                        <div className="border-t border-border pt-3">
+                          <p className="text-[0.68rem] text-muted-foreground uppercase tracking-wide">Account Holder</p>
+                          <p className="text-foreground font-medium mt-0.5">Fahad Zaib Satti</p>
+                        </div>
+                        <div className="border-t border-border pt-3">
+                          <p className="text-[0.68rem] text-muted-foreground uppercase tracking-wide">Account Number</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-foreground font-semibold font-mono tracking-wider text-[0.9rem]">0209250277841</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText("0209250277841");
+                                setAccountCopied(true);
+                                setTimeout(() => setAccountCopied(false), 2000);
+                              }}
+                              className={cn(
+                                "inline-flex items-center gap-1 px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-wide border transition-colors",
+                                accountCopied
+                                  ? "border-accent text-accent bg-accent/5"
+                                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground",
+                              )}
+                            >
+                              {accountCopied ? (
+                                <>
+                                  <Check className="h-3 w-3" />
+                                  Copied
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3 w-3" />
+                                  Copy
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="border-t border-border pt-3">
+                        <p className="text-[0.75rem] text-muted-foreground leading-relaxed">
+                          After making the bank transfer, please send your payment screenshot on WhatsApp. You'll see a WhatsApp button on the order confirmation page after placing your order.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </section>
 

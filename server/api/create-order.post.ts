@@ -47,9 +47,9 @@ export default defineEventHandler(async (event) => {
   const {
     requestId,
     customer,
-    shippingAddress,
-    billingAddress,
-    shippedToDifferentAddress,
+    primaryAddress,
+    shippingAddress: altShippingAddress,
+    shipToDifferentAddress,
     items,
     paymentMethod,
     subtotal,
@@ -64,25 +64,24 @@ export default defineEventHandler(async (event) => {
       email: string;
       phone: string;
     };
-    shippingAddress: {
+    primaryAddress: {
       firstName?: string;
       lastName?: string;
       address: string;
       apartment?: string;
       city: string;
-      province: string;
       postalCode?: string;
     };
-    billingAddress?: {
+    shippingAddress?: {
       firstName?: string;
       lastName?: string;
+      phone?: string;
       address: string;
       apartment?: string;
       city: string;
-      province: string;
       postalCode?: string;
-    };
-    shippedToDifferentAddress?: boolean;
+    } | null;
+    shipToDifferentAddress?: boolean;
     items: Array<{
       variantId: string;
       quantity: number;
@@ -104,8 +103,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: "Missing required customer information" });
   }
 
-  if (!shippingAddress?.address || !shippingAddress?.city) {
-    throw createError({ statusCode: 400, message: "Missing shipping address" });
+  if (!primaryAddress?.address || !primaryAddress?.city) {
+    throw createError({ statusCode: 400, message: "Missing address" });
+  }
+
+  if (shipToDifferentAddress && (!altShippingAddress?.address || !altShippingAddress?.city)) {
+    throw createError({ statusCode: 400, message: "Missing shipping address details" });
   }
 
   if (!items || !Array.isArray(items) || items.length === 0) {
@@ -197,15 +200,27 @@ export default defineEventHandler(async (event) => {
 
   const customerName = `${customer.firstName} ${customer.lastName}`.trim();
 
+  const paymentLabel = paymentMethod === "bank_transfer"
+    ? "Bank Transfer (Pending — UBL / Fahad Zaib Satti / 0209250277841)"
+    : "Cash on Delivery";
+
   const orderNote = [
     `LAAF Order — ${customerName}`,
     `Phone: ${customer.phone}`,
     customer.email ? `Email: ${customer.email}` : "",
-    `Payment: Cash on Delivery`,
+    `Payment: ${paymentLabel}`,
     notes ? `Customer notes: ${notes}` : "",
   ]
     .filter(Boolean)
     .join("\n");
+
+  // Determine the effective shipping address
+  const effectiveShipping =
+    shipToDifferentAddress && altShippingAddress ? altShippingAddress : primaryAddress;
+  const shippingPhone =
+    shipToDifferentAddress && altShippingAddress?.phone
+      ? altShippingAddress.phone
+      : customer.phone;
 
   const orderInput: Record<string, unknown> = {
     lineItems,
@@ -213,25 +228,23 @@ export default defineEventHandler(async (event) => {
     financialStatus: "PENDING",
     note: orderNote,
     shippingAddress: {
-      firstName: shippingAddress.firstName || customer.firstName,
-      lastName: shippingAddress.lastName || customer.lastName,
-      address1: shippingAddress.address,
-      address2: shippingAddress.apartment || "",
-      city: shippingAddress.city,
-      provinceCode: shippingAddress.province || "",
-      zip: shippingAddress.postalCode || "",
+      firstName: effectiveShipping.firstName || customer.firstName,
+      lastName: effectiveShipping.lastName || customer.lastName,
+      address1: effectiveShipping.address,
+      address2: effectiveShipping.apartment || "",
+      city: effectiveShipping.city,
+      zip: effectiveShipping.postalCode || "",
       countryCode: "PK",
-      phone: customer.phone,
+      phone: shippingPhone,
     },
-    billingAddress: shippedToDifferentAddress && billingAddress
+    billingAddress: shipToDifferentAddress && altShippingAddress
       ? {
-          firstName: billingAddress.firstName || customer.firstName,
-          lastName: billingAddress.lastName || customer.lastName,
-          address1: billingAddress.address,
-          address2: billingAddress.apartment || "",
-          city: billingAddress.city,
-          provinceCode: billingAddress.province || "",
-          zip: billingAddress.postalCode || "",
+          firstName: primaryAddress.firstName || customer.firstName,
+          lastName: primaryAddress.lastName || customer.lastName,
+          address1: primaryAddress.address,
+          address2: primaryAddress.apartment || "",
+          city: primaryAddress.city,
+          zip: primaryAddress.postalCode || "",
           countryCode: "PK",
           phone: customer.phone,
         }
@@ -303,10 +316,9 @@ export default defineEventHandler(async (event) => {
         phone: customer.phone,
       },
       shippingAddress: {
-        address: shippingAddress.address,
-        apartment: shippingAddress.apartment || "",
-        city: shippingAddress.city,
-        province: shippingAddress.province || "",
+        address: effectiveShipping.address,
+        apartment: effectiveShipping.apartment || "",
+        city: effectiveShipping.city,
       },
       paymentMethod: paymentMethod || "cod",
       subtotal,

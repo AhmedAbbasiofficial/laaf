@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { CheckCircle2, Truck, Shield, RefreshCw, Phone, Mail, MapPin, ArrowUpRight, Banknote, Loader2 } from "lucide-react";
+import { CheckCircle2, Truck, Shield, RefreshCw, Phone, Mail, MapPin, ArrowUpRight, Banknote, Loader2, Building2, Copy, Check, MessageCircle } from "lucide-react";
 import { getProduct } from "@/lib/products";
 import { cn } from "@/lib/utils";
 import { laafLocation } from "@/lib/site";
@@ -12,7 +12,6 @@ interface OrderAddress {
   address: string;
   apartment?: string;
   city: string;
-  province: string;
 }
 
 interface OrderConfirmationData {
@@ -41,7 +40,7 @@ interface OrderConfirmationData {
   shippingCity?: string;
   deliveryWindow?: string;
   total: number;
-  paymentMethod: "cod" | "card";
+  paymentMethod: "cod" | "card" | "bank_transfer";
 }
 
 function emptyOrder(orderId: string): OrderConfirmationData {
@@ -49,8 +48,8 @@ function emptyOrder(orderId: string): OrderConfirmationData {
     orderId,
     orderDate: new Date().toLocaleDateString("en-PK", { day: "numeric", month: "long", year: "numeric" }),
     customer: { firstName: "", lastName: "", email: "", phone: "" },
-    billingAddress: { address: "", apartment: "", city: "", province: "" },
-    shippingAddress: { address: "", apartment: "", city: "", province: "" },
+    billingAddress: { address: "", apartment: "", city: "" },
+    shippingAddress: { address: "", apartment: "", city: "" },
     shippedToDifferentAddress: false,
     items: [],
     subtotal: 0,
@@ -77,6 +76,7 @@ function OrderConfirmation() {
   const loaderData = useLoaderData({ strict: false }) as OrderConfirmationData;
   const [data, setData] = useState<OrderConfirmationData>(loaderData);
   const [loading, setLoading] = useState(true);
+  const [accountCopied, setAccountCopied] = useState(false);
 
   useEffect(() => {
     try {
@@ -115,15 +115,19 @@ function OrderConfirmation() {
 
   // New orders carry separate billing/shipping; legacy orders only have `shipping`.
   const shippedDifferent = data.shippedToDifferentAddress === true;
-  const billing = data.billingAddress ?? data.shipping ?? { address: "", apartment: "", city: "", province: "" };
+  const billing = data.billingAddress ?? data.shipping ?? { address: "", apartment: "", city: "" };
   const shippingAddr = data.shippingAddress ?? data.shipping ?? billing;
   const shipName = shippedDifferent && shippingAddr.firstName
     ? `${shippingAddr.firstName} ${shippingAddr.lastName ?? ""}`.trim()
     : `${data.customer.firstName} ${data.customer.lastName}`;
 
   const paymentLabel =
-    data.paymentMethod === "card" ? "Credit / Debit Card"
+    data.paymentMethod === "bank_transfer" ? "Bank Transfer"
+    : data.paymentMethod === "card" ? "Credit / Debit Card"
     : "Cash on Delivery (COD)";
+
+  const bankTransferWhatsAppMessage = `Hello LAAF, I have completed my bank transfer and am sending my payment screenshot for Order #${data.orderId}.`;
+  const bankTransferWhatsAppUrl = `https://wa.me/${laafLocation.phoneRaw}?text=${encodeURIComponent(bankTransferWhatsAppMessage)}`;
 
   return (
     <div className="min-h-screen bg-white">
@@ -202,7 +206,7 @@ function OrderConfirmation() {
                 <p>{shipName}</p>
                 <p>{shippingAddr.address}</p>
                 {shippingAddr.apartment && <p>{shippingAddr.apartment}</p>}
-                <p>{shippingAddr.city}, {shippingAddr.province}</p>
+                <p>{shippingAddr.city}</p>
                 <p className="text-muted-foreground">Pakistan</p>
               </div>
               {shippedDifferent && (
@@ -223,7 +227,7 @@ function OrderConfirmation() {
                   <p>{data.customer.firstName} {data.customer.lastName}</p>
                   <p>{billing.address}</p>
                   {billing.apartment && <p>{billing.apartment}</p>}
-                  <p>{billing.city}, {billing.province}</p>
+                  <p>{billing.city}</p>
                   <p className="text-muted-foreground">Pakistan</p>
                 </div>
               </section>
@@ -240,6 +244,77 @@ function OrderConfirmation() {
                 <p className="mt-2 text-[0.75rem] text-muted-foreground">
                   Paid securely by credit / debit card. Your card details are never stored on our servers.
                 </p>
+              )}
+              {data.paymentMethod === "bank_transfer" && (
+                <div className="mt-4 space-y-4">
+                  {/* Bank details card */}
+                  <div className="border border-border bg-muted/10 p-4 sm:p-5 space-y-3">
+                    <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-foreground">
+                      Bank Transfer Details
+                    </p>
+                    <div className="space-y-3 text-[0.82rem]">
+                      <div>
+                        <p className="text-[0.68rem] text-muted-foreground uppercase tracking-wide">Bank Name</p>
+                        <p className="text-foreground font-medium mt-0.5">UBL</p>
+                      </div>
+                      <div className="border-t border-border pt-3">
+                        <p className="text-[0.68rem] text-muted-foreground uppercase tracking-wide">Account Holder</p>
+                        <p className="text-foreground font-medium mt-0.5">Fahad Zaib Satti</p>
+                      </div>
+                      <div className="border-t border-border pt-3">
+                        <p className="text-[0.68rem] text-muted-foreground uppercase tracking-wide">Account Number</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-foreground font-semibold font-mono tracking-wider text-[0.9rem]">0209250277841</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText("0209250277841");
+                              setAccountCopied(true);
+                              setTimeout(() => setAccountCopied(false), 2000);
+                            }}
+                            className={cn(
+                              "inline-flex items-center gap-1 px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-wide border transition-colors",
+                              accountCopied
+                                ? "border-accent text-accent bg-accent/5"
+                                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground",
+                            )}
+                          >
+                            {accountCopied ? (
+                              <>
+                                <Check className="h-3 w-3" />
+                                Copied
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3 w-3" />
+                                Copy
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* WhatsApp Screenshot Button */}
+                  <div className="border border-accent/30 bg-accent/5 p-4 sm:p-5 space-y-3">
+                    <p className="text-[0.82rem] text-foreground leading-relaxed">
+                      Please send your payment screenshot on WhatsApp to confirm your order.
+                    </p>
+                    <a
+                      href={bankTransferWhatsAppUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-[#25D366] text-white px-6 py-3 text-[0.72rem] font-semibold uppercase tracking-wide transition-colors hover:bg-[#1fba59]"
+                    >
+                      <MessageCircle className="h-4 w-4" strokeWidth={2} />
+                      Send Payment Screenshot on WhatsApp
+                    </a>
+                    <p className="text-[0.65rem] text-muted-foreground">
+                      Opens WhatsApp with a pre-filled message including your order number.
+                    </p>
+                  </div>
+                </div>
               )}
             </section>
 

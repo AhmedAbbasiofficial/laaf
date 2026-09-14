@@ -18,5 +18,15 @@ export default defineConfig({
     build: {
       outDir: ".output",
     },
+    server: {
+      proxy: {
+        // Forward all /api/* requests to the Nitro dev server.
+        // Run `npm run dev:api` in a separate terminal first.
+        "/api": {
+          target: "http://localhost:3001",
+          changeOrigin: true,
+        },
+      },
+    },
   },
 });
