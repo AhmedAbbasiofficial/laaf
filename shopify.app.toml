@@ -1,0 +1,15 @@
+client_id = "9c5410c875fcd3e2e9ae8bd684ca63cf"
+name = "laaf"
+application_url = "https://shopify.dev/apps/default-app-home"
+embedded = false
+
+[webhooks]
+api_version = "2026-07"
+
+[access_scopes]
+scopes = "read_products,write_products,write_files,read_content,write_content,read_script_tags,write_script_tags"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [ "http://localhost:3456/callback" ]
