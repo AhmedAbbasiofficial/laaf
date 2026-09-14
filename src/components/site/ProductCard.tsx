@@ -62,6 +62,20 @@ export function ProductCard({
     setShowLengths(true);
   };
 
+  const isLengthAvailable = (len: string) => {
+    if (!product.shopifyVariants || product.shopifyVariants.length === 0) return false;
+    return product.shopifyVariants.some((v) => 
+      v.availableForSale &&
+      (v.selectedOptions.some(
+        (opt) =>
+          opt.name.toLowerCase().includes("length") &&
+          (opt.value === `${len}"` || opt.value === len),
+      ) ||
+      v.title.includes(`${len}"`) ||
+      v.title.includes(len))
+    );
+  };
+
   const handleSelectLength = (e: React.MouseEvent, selectedLength: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -162,16 +176,27 @@ export function ProductCard({
             ) : (
               <div className="flex items-center justify-around w-full px-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
                 <span className="text-[0.62rem] text-muted-foreground mr-1.5 font-bold">LENGTH:</span>
-                {LENGTHS.map((len) => (
-                  <button
-                    key={len}
-                    type="button"
-                    onClick={(e) => handleSelectLength(e, len)}
-                    className="px-2 py-1 text-[0.72rem] font-bold border border-border hover:border-foreground hover:bg-foreground hover:text-white transition-colors"
-                  >
-                    {len}"
-                  </button>
-                ))}
+                {LENGTHS.map((len) => {
+                  const available = isLengthAvailable(len);
+                  return (
+                    <button
+                      key={len}
+                      type="button"
+                      disabled={!available}
+                      onClick={(e) => {
+                        if (available) handleSelectLength(e, len);
+                      }}
+                      className={cn(
+                        "px-2 py-1 text-[0.72rem] font-bold border transition-colors",
+                        available
+                          ? "border-border hover:border-foreground hover:bg-foreground hover:text-white"
+                          : "border-border/50 text-muted-foreground/30 line-through cursor-not-allowed"
+                      )}
+                    >
+                      {len}"
+                    </button>
+                  );
+                })}
                 <button
                   type="button"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowLengths(false); }}

@@ -507,7 +507,6 @@ function ProductPage() {
                       </button>
                     ))}
                   </div>
-                  {lengthError && <p className="text-[0.65rem] text-sale mt-1.5">{lengthError}</p>}
                   {lengthOptions.length === 0 && (
                     <p className="text-[0.65rem] text-sale mt-1.5">
                       No length variants are available for this product.
@@ -515,6 +514,8 @@ function ProductPage() {
                   )}
                 </div>
               )}
+
+              {lengthError && <p className="text-[0.65rem] text-sale mt-3">{lengthError}</p>}
 
               {/* Qty + Add to Cart */}
               <div className="mt-6 flex gap-3">
@@ -540,15 +541,18 @@ function ProductPage() {
                 <button
                   type="button"
                   onClick={onAdd}
+                  disabled={!hasAvailableVariant}
                   className={cn(
                     "flex-1 flex items-center justify-center gap-2 py-3.5 text-[0.72rem] font-semibold uppercase tracking-wide transition-all duration-200",
-                    addedFlash
-                      ? "bg-accent text-white"
-                      : "bg-foreground text-white hover:bg-accent",
+                    !hasAvailableVariant
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
+                      : addedFlash
+                        ? "bg-accent text-white"
+                        : "bg-foreground text-white hover:bg-accent",
                   )}
                 >
                   <ShoppingBag className="h-4 w-4" strokeWidth={2} />
-                  {addedFlash ? "Added!" : "Add to Cart"}
+                  {!hasAvailableVariant ? "Out of Stock" : addedFlash ? "Added!" : "Add to Cart"}
                 </button>
               </div>
 
@@ -588,7 +592,13 @@ function ProductPage() {
               <button
                 type="button"
                 onClick={buyNow}
-                className="mt-3 flex w-full items-center justify-center gap-2 bg-accent py-3.5 text-[0.72rem] font-semibold uppercase tracking-wide text-white hover:bg-accent/90 transition-colors"
+                disabled={!hasAvailableVariant}
+                className={cn(
+                  "mt-3 flex w-full items-center justify-center gap-2 py-3.5 text-[0.72rem] font-semibold uppercase tracking-wide transition-colors",
+                  hasAvailableVariant
+                    ? "bg-accent text-white hover:bg-accent/90"
+                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                )}
               >
                 <Zap className="h-4 w-4" strokeWidth={2} />
                 Buy It Now
@@ -714,7 +724,13 @@ function ProductPage() {
           <button
             type="button"
             onClick={buyNow}
-            className="flex items-center justify-center gap-1.5 px-4 py-3 text-[0.68rem] font-semibold uppercase tracking-wide bg-accent text-white hover:bg-accent/90 transition-colors"
+            disabled={!hasAvailableVariant}
+            className={cn(
+              "flex items-center justify-center gap-1.5 px-4 py-3 text-[0.68rem] font-semibold uppercase tracking-wide transition-colors",
+              hasAvailableVariant
+                ? "bg-accent text-white hover:bg-accent/90"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            )}
           >
             <Zap className="h-3.5 w-3.5" strokeWidth={2} />
             Buy Now
@@ -722,13 +738,16 @@ function ProductPage() {
           <button
             type="button"
             onClick={onAdd}
+            disabled={!hasAvailableVariant}
             className={cn(
               "flex items-center justify-center gap-1.5 px-4 py-3 text-[0.68rem] font-semibold uppercase tracking-wide transition-all",
-              addedFlash ? "bg-accent text-white" : "bg-foreground text-white hover:bg-accent",
+              !hasAvailableVariant
+                ? "bg-muted text-muted-foreground cursor-not-allowed"
+                : addedFlash ? "bg-accent text-white" : "bg-foreground text-white hover:bg-accent",
             )}
           >
             <ShoppingBag className="h-3.5 w-3.5" strokeWidth={2} />
-            {addedFlash ? "Added!" : "Add"}
+            {!hasAvailableVariant ? "Out of Stock" : addedFlash ? "Added!" : "Add"}
           </button>
         </div>
       </div>

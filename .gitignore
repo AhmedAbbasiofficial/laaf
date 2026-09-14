@@ -63,3 +63,4 @@ patch-ssr.mjs
 dev-output.log
 
 .vercel
+.env*
