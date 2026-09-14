@@ -194,9 +194,11 @@ export default defineEventHandler(async (event) => {
       });
     } catch (err: unknown) {
       if (err && typeof err === "object" && "statusCode" in err) throw err;
+      const detail = err instanceof Error ? err.message : String(err);
+      console.error("[LAAF] Variant validation failed:", item.slug, detail);
       throw createError({
         statusCode: 500,
-        message: `Failed to validate variant: ${item.slug}`,
+        message: `Failed to validate variant: ${item.slug} — ${detail}`,
       });
     }
   }
