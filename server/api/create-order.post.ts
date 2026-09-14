@@ -11,40 +11,25 @@ const PRODUCT_BY_VARIANT_QUERY = `#graphql
       id
       title
       availableForSale
-      price { amount currencyCode }
+      price
       product {
         id
         title
         handle
-        availableForSale
       }
     }
   }
 `;
 
-// ── Order creation mutation ─────────────────────────────────────
+// ── Order creation mutation (Shopify 2026-07) ─────────────────
 const ORDER_CREATE_MUTATION = `#graphql
-  mutation OrderCreate($input: OrderCreateInput!) {
-    orderCreate(input: $input) {
+  mutation orderCreate($order: OrderCreateOrderInput!, $options: OrderCreateOptionsInput) {
+    orderCreate(order: $order, options: $options) {
       order {
         id
         name
-        totalPriceSet {
-          shopMoney { amount currencyCode }
-        }
         displayFinancialStatus
         displayFulfillmentStatus
-        lineItems(first: 50) {
-          edges {
-            node {
-              title
-              quantity
-              originalUnitPriceSet {
-                shopMoney { amount currencyCode }
-              }
-            }
-          }
-        }
       }
       userErrors {
         field
@@ -166,8 +151,8 @@ export default defineEventHandler(async (event) => {
           id: string;
           title: string;
           availableForSale: boolean;
-          price: { amount: string; currencyCode: string };
-          product: { id: string; title: string; handle: string; availableForSale: boolean };
+          price: string;
+          product: { id: string; title: string; handle: string };
         } | null;
       }>(PRODUCT_BY_VARIANT_QUERY, { id: variantGid });
 
@@ -188,7 +173,7 @@ export default defineEventHandler(async (event) => {
       validatedItems.push({
         variantGid: data.productVariant.id,
         quantity: item.quantity,
-        price: data.productVariant.price.amount,
+        price: data.productVariant.price,
         title: data.productVariant.title,
         productTitle: data.productVariant.product.title,
       });
@@ -203,7 +188,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // ── 4. Build Shopify orderCreate input ─────────────────────
+  // ── 4. Build Shopify orderCreate input (2026-07 format) ─────
   const lineItems = validatedItems.map((vi) => ({
     variantId: vi.variantGid,
     quantity: vi.quantity,
@@ -211,68 +196,45 @@ export default defineEventHandler(async (event) => {
 
   const customerName = `${customer.firstName} ${customer.lastName}`.trim();
 
-  const shippingAddr = {
-    address1: shippingAddress.address,
-    address2: shippingAddress.apartment || "",
-    city: shippingAddress.city,
-    province: shippingAddress.province || "",
-    zip: shippingAddress.postalCode || "",
-    country: "Pakistan",
-    firstName: shippingAddress.firstName || customer.firstName,
-    lastName: shippingAddress.lastName || customer.lastName,
-    phone: customer.phone,
-  };
+  const orderNote = [
+    `LAAF Order — ${customerName}`,
+    `Phone: ${customer.phone}`,
+    customer.email ? `Email: ${customer.email}` : "",
+    `Payment: Cash on Delivery`,
+    notes ? `Customer notes: ${notes}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
-  // Use billing address if different, otherwise same as shipping
-  const billAddr = shippedToDifferentAddress && billingAddress
-    ? {
-        address1: billingAddress.address,
-        address2: billingAddress.apartment || "",
-        city: billingAddress.city,
-        province: billingAddress.province || "",
-        zip: billingAddress.postalCode || "",
-        country: "Pakistan",
-        firstName: billingAddress.firstName || customer.firstName,
-        lastName: billingAddress.lastName || customer.lastName,
-        phone: customer.phone,
-      }
-    : shippingAddr;
-
-  const orderInput = {
+  const orderInput: Record<string, unknown> = {
     lineItems,
-    shippingAddress: shippingAddr,
-    billingAddress: billAddr,
-    useDefaultAddress: false,
-    financialStatus: "PENDING" as const,
-    note: [
-      `LAAF Order — ${customerName}`,
-      `Phone: ${customer.phone}`,
-      customer.email ? `Email: ${customer.email}` : "",
-      `Payment: Cash on Delivery`,
-      notes ? `Customer notes: ${notes}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n"),
-    metafields: [
-      {
-        namespace: "laaf",
-        key: "source",
-        value: "laaf_checkout",
-        type: "single_line_text_field",
-      },
-      {
-        namespace: "laaf",
-        key: "request_id",
-        value: requestId,
-        type: "single_line_text_field",
-      },
-      {
-        namespace: "laaf",
-        key: "payment_method",
-        value: paymentMethod || "cod",
-        type: "single_line_text_field",
-      },
-    ],
+    email: customer.email || undefined,
+    financialStatus: "PENDING",
+    note: orderNote,
+    shippingAddress: {
+      firstName: shippingAddress.firstName || customer.firstName,
+      lastName: shippingAddress.lastName || customer.lastName,
+      address1: shippingAddress.address,
+      address2: shippingAddress.apartment || "",
+      city: shippingAddress.city,
+      provinceCode: shippingAddress.province || "",
+      zip: shippingAddress.postalCode || "",
+      countryCode: "PK",
+      phone: customer.phone,
+    },
+    billingAddress: shippedToDifferentAddress && billingAddress
+      ? {
+          firstName: billingAddress.firstName || customer.firstName,
+          lastName: billingAddress.lastName || customer.lastName,
+          address1: billingAddress.address,
+          address2: billingAddress.apartment || "",
+          city: billingAddress.city,
+          provinceCode: billingAddress.province || "",
+          zip: billingAddress.postalCode || "",
+          countryCode: "PK",
+          phone: customer.phone,
+        }
+      : undefined,
   };
 
   // ── 5. Create Shopify order ────────────────────────────────
@@ -282,13 +244,12 @@ export default defineEventHandler(async (event) => {
         order: {
           id: string;
           name: string;
-          totalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
           displayFinancialStatus: string;
           displayFulfillmentStatus: string;
         } | null;
         userErrors: { field: string; message: string }[];
       };
-    }>(ORDER_CREATE_MUTATION, { input: orderInput });
+    }>(ORDER_CREATE_MUTATION, { order: orderInput, options: { sendReceipt: false } });
 
     if (data.orderCreate.userErrors?.length > 0) {
       const msgs = data.orderCreate.userErrors.map((e) => e.message).join("; ");
@@ -327,8 +288,8 @@ export default defineEventHandler(async (event) => {
       orderNumber,
       financialStatus: order.displayFinancialStatus,
       fulfillmentStatus: order.displayFulfillmentStatus,
-      total: order.totalPriceSet.shopMoney.amount,
-      currency: order.totalPriceSet.shopMoney.currencyCode,
+      total,
+      currency: "PKR",
       items: validatedItems.map((vi) => ({
         productTitle: vi.productTitle,
         variantTitle: vi.title,
