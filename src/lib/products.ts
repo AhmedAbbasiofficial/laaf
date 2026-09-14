@@ -60,7 +60,11 @@ export function isShopifyLoading(): boolean {
  * On failure, products remain empty — no silent local fallback.
  */
 export async function initShopifyProducts(): Promise<void> {
-  if (shopifyLoading || shopifyLoaded) return;
+  if (shopifyLoaded) {
+    notifyListeners();
+    return;
+  }
+  if (shopifyLoading) return;
   shopifyLoading = true;
 
   try {
