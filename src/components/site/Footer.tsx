@@ -315,8 +315,8 @@ export function Footer() {
         </div>
 
         <div className="md:hidden py-8">
-          <Link to="/" aria-label="LAAF home" className="inline-flex">
-            <div className="overflow-hidden h-[72px] w-[64px] flex items-center justify-center">
+          <Link to="/" aria-label="LAAF home" className="flex">
+            <div className="overflow-hidden h-[72px] w-[64px] shrink-0 flex items-center justify-center">
               <img
                 src={laafLogo}
                 alt="LAAF"
