@@ -70,7 +70,7 @@ export async function initShopifyProducts(): Promise<void> {
   shopifyLoading = true;
 
   try {
-    const { fetchAllProducts, fetchCollections, fetchCollectionByHandle } = await import("@/lib/shopify/products");
+    const { fetchAllProducts, fetchCollections, fetchCollectionByHandle, fetchProductsByTag } = await import("@/lib/shopify/products");
 
     const products = await fetchAllProducts();
 
@@ -79,10 +79,10 @@ export async function initShopifyProducts(): Promise<void> {
     collections.sort((a, b) => displayOrder.indexOf(a.slug) - displayOrder.indexOf(b.slug));
     shopifyCollections = collections;
 
-    // Fetch homepage-specific collections in parallel
+    // Fetch homepage sections by tag (avoids need for published collections)
     const [newArrivals, featuredProducts] = await Promise.all([
-      fetchCollectionByHandle("new-arrivals").catch(() => [] as Product[]),
-      fetchCollectionByHandle("featured-products").catch(() => [] as Product[]),
+      fetchProductsByTag("new-arrivals", 4).catch(() => [] as Product[]),
+      fetchProductsByTag("featured", 2).catch(() => [] as Product[]),
     ]);
     shopifyNewArrivals = newArrivals;
     shopifyFeaturedProducts = featuredProducts;

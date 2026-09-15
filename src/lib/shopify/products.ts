@@ -161,6 +161,54 @@ const COLLECTION_BY_HANDLE_QUERY = `#graphql
   }
 `;
 
+const PRODUCTS_BY_TAG_QUERY = `#graphql
+  query ProductsByTag($first: Int!, $query: String!) {
+    products(first: $first, query: $query) {
+      edges {
+        node {
+          id
+          title
+          handle
+          description
+          descriptionHtml
+          productType
+          tags
+          createdAt
+          updatedAt
+          availableForSale
+          priceRange {
+            minVariantPrice { amount currencyCode }
+            maxVariantPrice { amount currencyCode }
+          }
+          images(first: 10) {
+            edges {
+              node {
+                url
+                altText
+                width
+                height
+              }
+            }
+          }
+          variants(first: 50) {
+            edges {
+              node {
+                id
+                title
+                availableForSale
+                price { amount currencyCode }
+                compareAtPrice { amount currencyCode }
+                selectedOptions { name value }
+                image { url altText width height }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
 const COLLECTIONS_QUERY = `#graphql
   query Collections($first: Int!) {
     collections(first: $first) {
@@ -345,6 +393,14 @@ export async function fetchCollections(): Promise<{ slug: string; title: string;
     description: e.node.description || "",
     heroImage: e.node.image?.url || "",
   }));
+}
+
+export async function fetchProductsByTag(tag: string, first = 10): Promise<Product[]> {
+  const data = await shopifyFetch<{ products: { edges: { node: ShopifyProduct }[] } }>(
+    PRODUCTS_BY_TAG_QUERY,
+    { first, query: `tag:${tag}` },
+  );
+  return data.products.edges.map((e) => shopifyProductToLocal(e.node));
 }
 
 export async function fetchCollectionByHandle(handle: string): Promise<Product[]> {
