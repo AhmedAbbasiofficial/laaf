@@ -95,17 +95,17 @@ export function ProductCard({
         {/* Badges */}
         <div className="absolute left-3 top-3 z-10 flex flex-col gap-1.5">
           {product.isNew && (
-            <span className="inline-flex items-center bg-accent px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-white leading-4">
+            <span className="inline-flex w-fit whitespace-nowrap items-center bg-accent px-1.5 py-px md:px-2 md:py-0.5 text-[0.55rem] md:text-[0.6rem] font-semibold uppercase tracking-wider text-white leading-none md:leading-4">
               New
             </span>
           )}
           {product.isSale && discount && (
-            <span className="inline-flex items-center bg-sale px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-white leading-4">
+            <span className="inline-flex w-fit whitespace-nowrap items-center bg-sale px-1.5 py-px md:px-2 md:py-0.5 text-[0.55rem] md:text-[0.6rem] font-semibold uppercase tracking-wider text-white leading-none md:leading-4">
               -{discount}%
             </span>
           )}
           {allVariantsUnavailable && (
-            <span className="inline-flex items-center bg-foreground/80 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-white leading-4">
+            <span className="inline-flex w-fit whitespace-nowrap items-center bg-foreground/80 px-1.5 py-px md:px-2 md:py-0.5 text-[0.55rem] md:text-[0.6rem] font-semibold uppercase tracking-wider text-white leading-none md:leading-4">
               Out of Stock
             </span>
           )}
