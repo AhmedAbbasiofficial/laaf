@@ -2,7 +2,7 @@
  * Review data layer — powered by Judge.me.
  *
  * All functions are async and fetch real review data from Judge.me
- * via the server-side createServerFn functions in judgeme.ts.
+ * via direct browser-safe fetch calls in judgeme.ts.
  *
  * The ProductReview type is preserved so the existing LAAF review UI
  * components (ReviewSection, WriteReviewModal, ProductCard) work

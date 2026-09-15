@@ -1,19 +1,11 @@
 /**
- * Judge.me server-side integration.
+ * Judge.me integration — proxied through server API routes.
  *
- * ALL functions in this file run on the server via createServerFn.
- * The JUDGEME_PRIVATE_API_TOKEN is never exposed to the browser.
+ * All Judge.me API calls go through /api/judgeme/reviews to keep the
+ * private token server-side only.
  */
-import { createServerFn } from "@tanstack/react-start";
 
-const JUDGEME_API = "https://judge.me/api/v1";
-
-function getEnv() {
-  return {
-    shopDomain: process.env["JUDGEME_SHOP_DOMAIN"] ?? "6c1sjh-w1.myshopify.com",
-    privateToken: process.env["JUDGEME_PRIVATE_API_TOKEN"] ?? "",
-  };
-}
+// ── Config ───────────────────────────────────────────────────────
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -53,98 +45,71 @@ export type JudgeMeCountResponse = {
 
 // ── Fetch reviews for a product ──────────────────────────────────
 
-export const fetchJudgeMeReviews = createServerFn({ method: "GET" })
-  .validator((handle: string) => handle)
-  .handler(async ({ data: handle }) => {
-    const { shopDomain, privateToken } = getEnv();
-    if (!privateToken) {
-      return { reviews: [] as JudgeMeReview[], error: "Missing Judge.me private token" };
+export async function fetchJudgeMeReviews(
+  args: { data: string },
+): Promise<{ reviews: JudgeMeReview[]; error: string | null }> {
+  const handle = args.data;
+
+  try {
+    const res = await fetch(`/api/judgeme/reviews?action=reviews&handle=${encodeURIComponent(handle)}&per_page=50&page=1`, {
+      headers: { Accept: "application/json" },
+    });
+
+    if (!res.ok) {
+      console.error(`[Judge.me] Reviews fetch failed: ${res.status}`);
+      return { reviews: [] as JudgeMeReview[], error: `HTTP ${res.status}` };
     }
 
-    try {
-      const url = new URL(`${JUDGEME_API}/reviews`);
-      url.searchParams.set("shop_domain", shopDomain);
-      url.searchParams.set("api_token", privateToken);
-      url.searchParams.set("handle", handle);
-      url.searchParams.set("per_page", "50");
-      url.searchParams.set("page", "1");
-
-      const res = await fetch(url.toString(), {
-        headers: { Accept: "application/json" },
-      });
-
-      if (!res.ok) {
-        console.error(`[Judge.me] Reviews fetch failed: ${res.status}`);
-        return { reviews: [] as JudgeMeReview[], error: `HTTP ${res.status}` };
-      }
-
-      const data: JudgeMeReviewsResponse = await res.json();
-      return { reviews: data.reviews, error: null };
-    } catch (err) {
-      console.error("[Judge.me] Reviews fetch error:", err);
-      return { reviews: [] as JudgeMeReview[], error: String(err) };
-    }
-  });
+    const data: JudgeMeReviewsResponse = await res.json();
+    return { reviews: data.reviews, error: null };
+  } catch (err) {
+    console.error("[Judge.me] Reviews fetch error:", err);
+    return { reviews: [] as JudgeMeReview[], error: String(err) };
+  }
+}
 
 // ── Fetch review count for a product ─────────────────────────────
 
-export const fetchJudgeMeReviewCount = createServerFn({ method: "GET" })
-  .validator((handle: string) => handle)
-  .handler(async ({ data: handle }) => {
-    const { shopDomain, privateToken } = getEnv();
-    if (!privateToken) return { count: 0 };
+export async function fetchJudgeMeReviewCount(
+  args: { data: string },
+): Promise<{ count: number }> {
+  const handle = args.data;
 
-    try {
-      const url = new URL(`${JUDGEME_API}/reviews/count`);
-      url.searchParams.set("shop_domain", shopDomain);
-      url.searchParams.set("api_token", privateToken);
-      url.searchParams.set("handle", handle);
+  try {
+    const res = await fetch(`/api/judgeme/reviews?action=count&handle=${encodeURIComponent(handle)}`);
+    if (!res.ok) return { count: 0 };
 
-      const res = await fetch(url.toString());
-      if (!res.ok) return { count: 0 };
-
-      const data: JudgeMeCountResponse = await res.json();
-      return { count: data.count };
-    } catch {
-      return { count: 0 };
-    }
-  });
+    const data: JudgeMeCountResponse = await res.json();
+    return { count: data.count };
+  } catch {
+    return { count: 0 };
+  }
+}
 
 // ── Fetch all reviews (batch — for product card ratings) ─────────
 
-export const fetchAllJudgeMeReviews = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const { shopDomain, privateToken } = getEnv();
-    if (!privateToken) return { reviews: [] as JudgeMeReview[] };
+export async function fetchAllJudgeMeReviews(): Promise<{ reviews: JudgeMeReview[] }> {
+  try {
+    const allReviews: JudgeMeReview[] = [];
+    let page = 1;
+    const perPage = 100;
 
-    try {
-      const allReviews: JudgeMeReview[] = [];
-      let page = 1;
-      const perPage = 100;
+    for (let i = 0; i < 5; i++) {
+      const res = await fetch(`/api/judgeme/reviews?action=reviews&per_page=${perPage}&page=${page}`);
+      if (!res.ok) break;
 
-      // Paginate through all reviews (cap at 5 pages = 500 reviews)
-      for (let i = 0; i < 5; i++) {
-        const url = new URL(`${JUDGEME_API}/reviews`);
-        url.searchParams.set("shop_domain", shopDomain);
-        url.searchParams.set("api_token", privateToken);
-        url.searchParams.set("per_page", String(perPage));
-        url.searchParams.set("page", String(page));
+      const data: JudgeMeReviewsResponse = await res.json();
+      allReviews.push(...data.reviews);
 
-        const res = await fetch(url.toString());
-        if (!res.ok) break;
-
-        const data: JudgeMeReviewsResponse = await res.json();
-        allReviews.push(...data.reviews);
-
-        if (data.reviews.length < perPage) break;
-        page++;
-      }
-
-      return { reviews: allReviews };
-    } catch {
-      return { reviews: [] as JudgeMeReview[] };
+      if (data.reviews.length < perPage) break;
+      page++;
     }
-  });
+
+    return { reviews: allReviews };
+  } catch {
+    return { reviews: [] as JudgeMeReview[] };
+  }
+}
 
 // ── Submit a review to Judge.me ──────────────────────────────────
 
@@ -160,48 +125,29 @@ export type ReviewSubmission = {
   picture_urls?: string[];
 };
 
-export const submitJudgeMeReview = createServerFn({ method: "GET" })
-  .validator((data: ReviewSubmission) => data)
-  .handler(async ({ data }) => {
-    const { privateToken } = getEnv();
-    if (!privateToken) {
-      return { success: false, error: "Missing Judge.me private token" };
+export async function submitJudgeMeReview(
+  args: { data: ReviewSubmission },
+): Promise<{ success: boolean; error?: string; message?: string }> {
+  const data = args.data;
+
+  try {
+    const res = await fetch("/api/judgeme/reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    const text = await res.text();
+    let json: Record<string, unknown> = {};
+    try { json = JSON.parse(text); } catch { /* not JSON */ }
+
+    if (!res.ok) {
+      return { success: false, error: (json["error"] as string) || `HTTP ${res.status}` };
     }
 
-    try {
-      const url = new URL(`${JUDGEME_API}/reviews`);
-      url.searchParams.set("shop_domain", data.shopDomain);
-      url.searchParams.set("api_token", privateToken);
-
-      const body: Record<string, unknown> = {
-        shop_domain: data.shopDomain,
-        platform: data.platform,
-        name: data.name,
-        email: data.email,
-        rating: data.rating,
-        body: data.body,
-      };
-      if (data.title) body["title"] = data.title;
-      if (data.id) body["id"] = data.id;
-      if (data.picture_urls?.length) body["picture_urls"] = data.picture_urls;
-
-      const res = await fetch(url.toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const text = await res.text();
-      let json: Record<string, unknown> = {};
-      try { json = JSON.parse(text); } catch { /* not JSON */ }
-
-      if (!res.ok) {
-        return { success: false, error: json["error"] || `HTTP ${res.status}` };
-      }
-
-      return { success: true, message: json["message"] || "Review submitted" };
-    } catch (err) {
-      console.error("[Judge.me] Review submission error:", err);
-      return { success: false, error: String(err) };
-    }
-  });
+    return { success: true, message: (json["message"] as string) || "Review submitted" };
+  } catch (err) {
+    console.error("[Judge.me] Review submission error:", err);
+    return { success: false, error: String(err) };
+  }
+}

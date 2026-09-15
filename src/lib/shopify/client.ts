@@ -31,30 +31,38 @@ export async function shopifyFetch<T>(
   variables?: Record<string, unknown>,
 ): Promise<T> {
   const url = `https://${DOMAIN}/api/${API_VERSION}/graphql.json`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Shopify-Storefront-Access-Token": TOKEN,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Storefront-Access-Token": TOKEN,
+      },
+      body: JSON.stringify({ query, variables }),
+      signal: controller.signal,
+    });
 
-  if (!res.ok) {
-    throw new ShopifyError(`Shopify API error ${res.status}`, res.status);
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new ShopifyError(`Shopify API error ${res.status}: ${body}`, res.status);
+    }
+
+    const json = await res.json();
+
+    if (json.errors?.length) {
+      throw new ShopifyError(
+        json.errors.map((e: any) => e.message).join("; "),
+        400,
+      );
+    }
+
+    return json.data as T;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const json = await res.json();
-
-  if (json.errors?.length) {
-    throw new ShopifyError(
-      json.errors.map((e: any) => e.message).join("; "),
-      400,
-    );
-  }
-
-  return json.data as T;
 }
 
 export { DOMAIN, TOKEN, API_VERSION };

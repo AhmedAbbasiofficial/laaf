@@ -52,14 +52,6 @@ const PRODUCTS_QUERY = `#graphql
               }
             }
           }
-          collections(first: 10) {
-            edges {
-              node {
-                handle
-                title
-              }
-            }
-          }
         }
       }
       pageInfo {
@@ -107,14 +99,6 @@ const PRODUCT_BY_HANDLE_QUERY = `#graphql
             compareAtPrice { amount currencyCode }
             selectedOptions { name value }
             image { url altText width height }
-          }
-        }
-      }
-      collections(first: 10) {
-        edges {
-          node {
-            handle
-            title
           }
         }
       }
@@ -167,14 +151,6 @@ const COLLECTION_BY_HANDLE_QUERY = `#graphql
                   compareAtPrice { amount currencyCode }
                   selectedOptions { name value }
                   image { url altText width height }
-                }
-              }
-            }
-            collections(first: 10) {
-              edges {
-                node {
-                  handle
-                  title
                 }
               }
             }
@@ -268,9 +244,7 @@ export function shopifyProductToLocal(sp: ShopifyProduct): Product {
   // Extract numeric Shopify product ID from GID (e.g. "gid://shopify/Product/123" → "123")
   const shopifyId = sp.id?.replace("gid://shopify/Product/", "") || undefined;
 
-  const collections = sp.collections
-    ? mapCollections(sp.collections.edges.map((e) => e.node))
-    : [];
+  const collections: CollectionSlug[] = [];
 
   // Extract colour from tags, variants, or title
   let colour = "Black";

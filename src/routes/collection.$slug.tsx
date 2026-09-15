@@ -210,7 +210,7 @@ function ProductPage() {
     let cancelled = false;
     getReviewStats(product.slug).then((stats) => {
       if (!cancelled) setReviewStats(stats);
-    });
+    }).catch(() => {});
     return () => {
       cancelled = true;
     };

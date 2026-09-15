@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState, useEffect } from "react";
 import { Shell } from "@/components/site/Section";
 import { useStore } from "@/lib/store";
@@ -16,6 +16,7 @@ export const Route = createFileRoute("/cart")({
 
 function Cart() {
   const { bag, setQty, removeFromBag, hydrated } = useStore();
+  const navigate = useNavigate();
   const [shopifyReady, setShopifyReady] = useState(() => !isShopifyLoading() && getActiveProducts().length > 0);
 
   useEffect(() => {
@@ -46,8 +47,8 @@ function Cart() {
   }, 0);
 
   const handleCheckout = useCallback(() => {
-    window.location.href = "/checkout";
-  }, []);
+    navigate({ to: "/checkout" });
+  }, [navigate]);
 
   if (items.length === 0) {
     return (
@@ -58,9 +59,9 @@ function Cart() {
             Add pieces to your bag from the collection.
           </p>
           <div className="mt-6">
-            <a href="/collection" className="eyebrow inline-block border-b border-foreground pb-1">
+            <Link to="/collection" className="eyebrow inline-block border-b border-foreground pb-1">
               Browse the collection
-            </a>
+            </Link>
           </div>
         </div>
       </Shell>
@@ -146,12 +147,12 @@ function Cart() {
             >
               Checkout
             </button>
-            <a
-              href="/collection"
+            <Link
+              to="/collection"
               className="inline-flex w-full items-center justify-center border border-border px-4 py-3"
             >
               Continue shopping
-            </a>
+            </Link>
           </div>
         </aside>
       </div>

@@ -75,7 +75,7 @@ export async function initShopifyProducts(): Promise<void> {
   } catch (err) {
     console.error("[LAAF] Shopify products fetch failed:", err);
     shopifyProducts = [];
-    shopifyLoaded = false;
+    shopifyLoaded = true;
   }
 
   try {
@@ -84,13 +84,9 @@ export async function initShopifyProducts(): Promise<void> {
     const displayOrder = ["everyday-wear", "new-in", "everyday-essentials", "modest-co-ord", "hijab-accessories"];
     collections.sort((a, b) => displayOrder.indexOf(a.slug) - displayOrder.indexOf(b.slug));
     shopifyCollections = collections;
-    if (collections.length > 0) {
-      shopifyLoaded = true;
-    }
   } catch (err) {
     console.error("[LAAF] Shopify collections fetch failed:", err);
     shopifyCollections = [];
-    shopifyLoaded = false;
   }
 
   shopifyLoading = false;

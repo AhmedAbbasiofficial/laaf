@@ -121,28 +121,35 @@ export async function shopifyAdminGraphQL<T>(
   variables?: Record<string, unknown>,
 ): Promise<T> {
   const token = await getShopifyAdminAccessToken();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
 
-  const res = await fetch(`https://${SHOP}.myshopify.com/admin/api/2026-07/graphql.json`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Shopify-Access-Token": token,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
+  try {
+    const res = await fetch(`https://${SHOP}.myshopify.com/admin/api/2026-07/graphql.json`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": token,
+      },
+      body: JSON.stringify({ query, variables }),
+      signal: controller.signal,
+    });
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Shopify Admin API error ${res.status}: ${body}`);
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`Shopify Admin API error ${res.status}: ${body}`);
+    }
+
+    const json = await res.json();
+
+    if (json.errors?.length) {
+      throw new Error(
+        json.errors.map((e: { message: string }) => e.message).join("; "),
+      );
+    }
+
+    return json.data as T;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const json = await res.json();
-
-  if (json.errors?.length) {
-    throw new Error(
-      json.errors.map((e: { message: string }) => e.message).join("; "),
-    );
-  }
-
-  return json.data as T;
 }
