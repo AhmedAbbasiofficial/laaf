@@ -68,25 +68,41 @@ export async function initShopifyProducts(): Promise<void> {
   shopifyLoading = true;
 
   try {
-    const { fetchAllProducts } = await import("@/lib/shopify/products");
+    const { fetchAllProducts, fetchCollections, fetchCollectionByHandle } = await import("@/lib/shopify/products");
+
     const products = await fetchAllProducts();
+
+    const collections = await fetchCollections();
+    const displayOrder = ["everyday-wear", "new-in", "everyday-essentials", "modest-co-ord", "hijab-accessories"];
+    collections.sort((a, b) => displayOrder.indexOf(a.slug) - displayOrder.indexOf(b.slug));
+    shopifyCollections = collections;
+
+    const productCollectionMap = new Map<string, CollectionSlug[]>();
+    await Promise.all(
+      collections.map(async (col) => {
+        try {
+          const colProducts = await fetchCollectionByHandle(col.slug);
+          for (const cp of colProducts) {
+            const existing = productCollectionMap.get(cp.slug) || [];
+            existing.push(col.slug as CollectionSlug);
+            productCollectionMap.set(cp.slug, existing);
+          }
+        } catch {
+          // skip failed collection
+        }
+      })
+    );
+
+    for (const product of products) {
+      product.collections = productCollectionMap.get(product.slug) || [];
+    }
+
     shopifyProducts = products;
     shopifyLoaded = true;
   } catch (err) {
     console.error("[LAAF] Shopify products fetch failed:", err);
     shopifyProducts = [];
     shopifyLoaded = true;
-  }
-
-  try {
-    const { fetchCollections } = await import("@/lib/shopify/products");
-    const collections = await fetchCollections();
-    const displayOrder = ["everyday-wear", "new-in", "everyday-essentials", "modest-co-ord", "hijab-accessories"];
-    collections.sort((a, b) => displayOrder.indexOf(a.slug) - displayOrder.indexOf(b.slug));
-    shopifyCollections = collections;
-  } catch (err) {
-    console.error("[LAAF] Shopify collections fetch failed:", err);
-    shopifyCollections = [];
   }
 
   shopifyLoading = false;
