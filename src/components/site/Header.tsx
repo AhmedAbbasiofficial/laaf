@@ -318,43 +318,26 @@ export function Header() {
           />
           <div
             className={cn(
-              "absolute inset-y-0 left-0 flex w-[82%] max-w-[340px] flex-col overflow-y-auto bg-[#111111] px-6 py-8 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              "absolute inset-y-0 left-0 flex w-[82%] max-w-[340px] flex-col overflow-y-auto bg-white px-6 py-8 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
               mobileOpen ? "translate-x-0" : "-translate-x-full",
             )}
           >
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="absolute right-5 top-5 grid h-8 w-8 place-items-center text-zinc-400 hover:text-white transition-colors"
+              className="absolute right-5 top-5 grid h-8 w-8 place-items-center text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Close menu"
             >
               <X className="h-5 w-5" strokeWidth={1.5} />
             </button>
 
-            <nav aria-label="Mobile" className="mt-14 flex flex-col gap-3">
-              <div className="text-[0.82rem] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-                Shop
-              </div>
-              {mobileCollectionLinks.map((item) => (
+            <nav aria-label="Mobile" className="mt-14 flex flex-col gap-0">
+              {[...mobileCollectionLinks, ...mobileCompanyLinks].map((item) => (
                 <Link
                   key={item.label}
                   to={item.to}
                   onClick={() => setMobileOpen(false)}
-                  className="text-[1.15rem] font-medium leading-8 text-zinc-300 transition-colors hover:text-white"
-                >
-                  {item.label}
-                </Link>
-              ))}
-
-              <div className="mt-6 text-[0.82rem] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-                Company
-              </div>
-              {mobileCompanyLinks.map((item) => (
-                <Link
-                  key={item.label}
-                  to={item.to}
-                  onClick={() => setMobileOpen(false)}
-                  className="text-[1.15rem] font-medium leading-8 text-zinc-300 transition-colors hover:text-white"
+                  className="py-2.5 text-[0.88rem] font-medium text-foreground transition-colors hover:text-accent border-b border-border last:border-b-0"
                 >
                   {item.label}
                 </Link>
