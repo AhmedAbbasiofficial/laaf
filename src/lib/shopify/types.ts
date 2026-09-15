@@ -75,7 +75,7 @@ export type ProductByHandleResponse = {
 };
 
 export type CollectionByHandleResponse = {
-  collection: ShopifyCollection | null;
+  collectionByHandle: ShopifyCollection | null;
 };
 
 export type CartCreateResponse = {

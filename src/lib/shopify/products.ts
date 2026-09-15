@@ -352,9 +352,9 @@ export async function fetchCollectionByHandle(handle: string): Promise<Product[]
     handle,
   });
 
-  if (!data.collection) return [];
+  if (!data.collectionByHandle) return [];
 
-  return data.collection.products.edges.map((e) => shopifyProductToLocal(e.node));
+  return data.collectionByHandle.products.edges.map((e) => shopifyProductToLocal(e.node));
 }
 
 // ── Search ──────────────────────────────────────────────────────
