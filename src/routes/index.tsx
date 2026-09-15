@@ -7,8 +7,8 @@ import { FAQSection } from "@/components/site/FAQSection";
 import { TwoProductFeatureSection } from "@/components/site/TwoProductFeatureSection";
 import { EditorialBrandSection } from "@/components/site/EditorialBrandSection";
 import {
-  getActiveProducts,
   getActiveCollections,
+  getNewArrivals,
   onShopifyDataReady,
   isShopifyLoading,
 } from "@/lib/products";
@@ -93,7 +93,7 @@ function Index() {
     return onShopifyDataReady(() => setTick((t) => t + 1));
   }, []);
 
-  const featured = getActiveProducts().slice(0, 4);
+  const featured = getNewArrivals().slice(0, 4);
   const collectionsList = getActiveCollections().filter((c) => c.slug !== "frontpage");
   const loading = mounted && isShopifyLoading();
 

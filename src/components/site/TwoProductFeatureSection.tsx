@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import {
-  getActiveProducts,
+  getFeaturedProducts,
   onShopifyDataReady,
   isShopifyLoading,
   type Product,
@@ -44,7 +44,7 @@ function ProductTile({ product, label }: { product: Product; label: string }) {
 }
 
 export function TwoProductFeatureSection() {
-  const getPair = () => getActiveProducts().slice(0, 2);
+  const getPair = () => getFeaturedProducts().slice(0, 2);
   const [featurePair, setFeaturePair] = useState(() => getPair());
   const loading = isShopifyLoading();
 

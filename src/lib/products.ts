@@ -36,6 +36,8 @@ export type CollectionSummary = {
 
 let shopifyProducts: Product[] | null = null;
 let shopifyCollections: CollectionSummary[] | null = null;
+let shopifyNewArrivals: Product[] | null = null;
+let shopifyFeaturedProducts: Product[] | null = null;
 let shopifyLoaded = false;
 let shopifyLoading = false;
 type Listener = () => void;
@@ -76,6 +78,14 @@ export async function initShopifyProducts(): Promise<void> {
     const displayOrder = ["everyday-wear", "new-in", "everyday-essentials", "modest-co-ord", "hijab-accessories"];
     collections.sort((a, b) => displayOrder.indexOf(a.slug) - displayOrder.indexOf(b.slug));
     shopifyCollections = collections;
+
+    // Fetch homepage-specific collections in parallel
+    const [newArrivals, featuredProducts] = await Promise.all([
+      fetchCollectionByHandle("new-arrivals").catch(() => [] as Product[]),
+      fetchCollectionByHandle("featured-products").catch(() => [] as Product[]),
+    ]);
+    shopifyNewArrivals = newArrivals;
+    shopifyFeaturedProducts = featuredProducts;
 
     const productCollectionMap = new Map<string, CollectionSlug[]>();
     await Promise.all(
@@ -123,6 +133,20 @@ export function getActiveProducts(): Product[] {
  */
 export function getActiveCollections() {
   return shopifyCollections ?? [];
+}
+
+/**
+ * Returns products from the Shopify "New Arrivals" collection.
+ */
+export function getNewArrivals(): Product[] {
+  return shopifyNewArrivals ?? [];
+}
+
+/**
+ * Returns products from the Shopify "Featured Products" collection.
+ */
+export function getFeaturedProducts(): Product[] {
+  return shopifyFeaturedProducts ?? [];
 }
 
 // ── Public API (backward-compatible) ────────────────────────────
