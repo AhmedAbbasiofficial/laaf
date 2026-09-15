@@ -87,7 +87,13 @@ export function resolveVariantId(
 
   // Only fallback to a single product-level variant id when the product
   // model itself is being used without the richer shopifyVariants list.
-  if (product.shopifyVariantId) return product.shopifyVariantId;
+  if (product.shopifyVariantId) {
+    const match = product.shopifyVariants?.find(
+      (v) => v.id === product.shopifyVariantId && v.availableForSale,
+    );
+    if (match) return match.id;
+    return null;
+  }
 
   return null;
 }

@@ -13,6 +13,7 @@ import {
   clearShopifyCart,
   syncBagToShopifyCart,
 } from "@/lib/shopify/cart-bridge";
+import { getProduct } from "@/lib/products";
 
 export type BagItem = { slug: string; size: string; length?: string; qty: number };
 
@@ -103,6 +104,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [wishlist, hydrated]);
 
   const addToBag = useCallback((slug: string, size: string, length?: string, qty = 1) => {
+    const product = getProduct(slug);
+    if (product?.shopifyVariants && product.shopifyVariants.length > 0) {
+      const targetVariant = product.shopifyVariants.find((v) => {
+        if (!v.availableForSale) return false;
+        if (length) {
+          return v.selectedOptions.some(
+            (opt) =>
+              opt.name.toLowerCase().includes("length") &&
+              (opt.value === `${length}"` || opt.value === length),
+          ) || v.title.includes(`${length}"`) || v.title.includes(length);
+        }
+        return true;
+      });
+      if (!targetVariant) return;
+    }
+
     setBag((prev) => {
       const found = prev.find((i) => i.slug === slug && i.size === size && i.length === length);
       const next = found

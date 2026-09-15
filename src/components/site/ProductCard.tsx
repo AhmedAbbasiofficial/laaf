@@ -56,6 +56,11 @@ export function ProductCard({
     ? Math.round(((product.compareAtPrice - product.price) / product.compareAtPrice) * 100)
     : null;
 
+  const allVariantsUnavailable =
+    product.shopifyVariants &&
+    product.shopifyVariants.length > 0 &&
+    product.shopifyVariants.every((v) => !v.availableForSale);
+
   const handleQuickAddClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -97,6 +102,11 @@ export function ProductCard({
           {product.isSale && discount && (
             <span className="inline-flex items-center bg-sale px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-white leading-4">
               -{discount}%
+            </span>
+          )}
+          {allVariantsUnavailable && (
+            <span className="inline-flex items-center bg-foreground/80 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-white leading-4">
+              Out of Stock
             </span>
           )}
         </div>
@@ -166,12 +176,16 @@ export function ProductCard({
             {!showLengths ? (
               <button
                 type="button"
-                onClick={handleQuickAddClick}
-                className="flex h-full w-full items-center justify-center gap-2"
-                aria-label={`Quick add options for ${product.name}`}
+                onClick={allVariantsUnavailable ? undefined : handleQuickAddClick}
+                disabled={allVariantsUnavailable}
+                className={cn(
+                  "flex h-full w-full items-center justify-center gap-2",
+                  allVariantsUnavailable && "text-muted-foreground/50 cursor-not-allowed"
+                )}
+                aria-label={allVariantsUnavailable ? `${product.name} is out of stock` : `Quick add options for ${product.name}`}
               >
                 <ShoppingBag className="h-3.5 w-3.5" strokeWidth={2} />
-                Add to Cart
+                {allVariantsUnavailable ? "Out of Stock" : "Add to Cart"}
               </button>
             ) : (
               <div className="flex items-center justify-around w-full px-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>

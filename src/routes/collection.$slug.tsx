@@ -337,7 +337,9 @@ function ProductPage() {
       "@type": "Offer",
       price: product.price,
       priceCurrency: product.currency,
-      availability: "https://schema.org/InStock",
+      availability: hasAvailableVariant
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
     },
   };
 

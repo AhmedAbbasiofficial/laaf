@@ -166,13 +166,12 @@ export default defineEventHandler(async (event) => {
         });
       }
 
-      // For COD orders, don't block on availability — the merchant manages stock
-      // if (!data.productVariant.availableForSale) {
-      //   throw createError({
-      //     statusCode: 400,
-      //     message: `Product variant is no longer available: ${data.productVariant.product.title} — ${data.productVariant.title}`,
-      //   });
-      // }
+      if (!data.productVariant.availableForSale) {
+        throw createError({
+          statusCode: 400,
+          message: `Product variant is no longer available: ${data.productVariant.product.title} — ${data.productVariant.title}`,
+        });
+      }
 
       validatedItems.push({
         variantGid: data.productVariant.id,
