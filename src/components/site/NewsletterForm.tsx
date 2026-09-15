@@ -5,21 +5,33 @@ export function NewsletterForm() {
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed) return;
+    setPending(true);
+    try {
+      const res = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setPending(false);
+      if (!res.ok) {
+        toast("Something went wrong.", { description: data.statusMessage || "Please try again." });
+        return;
+      }
+      setEmail("");
+      toast("Thank you — you're subscribed to LAAF.");
+    } catch {
+      setPending(false);
+      toast("Network error.", { description: "Please try again later." });
+    }
+  };
+
   return (
-    <form
-      className="flex max-w-sm items-end gap-3"
-      onSubmit={(e) => {
-        e.preventDefault();
-        setPending(true);
-        setTimeout(() => {
-          setPending(false);
-          setEmail("");
-          toast("Thank you — your address has been noted.", {
-            description: "Newsletter delivery is not yet connected.",
-          });
-        }, 500);
-      }}
-    >
+    <form className="flex max-w-sm items-end gap-3" onSubmit={handleSubmit}>
       <div className="flex-1">
         <label htmlFor="newsletter-email" className="eyebrow text-muted-foreground">
           Email

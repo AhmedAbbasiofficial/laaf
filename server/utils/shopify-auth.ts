@@ -28,8 +28,8 @@ const CC_REFRESH_BUFFER_MS = 60_000;
  * Checks .data/shopify-token.json first, then SHOPIFY_OFFLINE_ACCESS_TOKEN env var.
  */
 function getOfflineAccessToken(): string | null {
-  // 1. Check environment variable
-  const envToken = process.env.SHOPIFY_OFFLINE_ACCESS_TOKEN;
+  // 1. Check environment variables
+  const envToken = process.env.SHOPIFY_OFFLINE_ACCESS_TOKEN ?? process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
   if (envToken) return envToken;
 
   // 2. Check .data/shopify-token.json

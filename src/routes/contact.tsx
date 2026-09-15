@@ -30,13 +30,22 @@ function Contact() {
     }
     setLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 700));
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, message }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.statusMessage || "Failed to send — please try again later.");
+        return;
+      }
       setSuccess(true);
       setName("");
       setEmail("");
       setMessage("");
-    } catch (err) {
-      setError("Failed to send — please try again later.");
+    } catch {
+      setError("Network error. Please try again later.");
     } finally {
       setLoading(false);
     }

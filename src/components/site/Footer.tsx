@@ -4,32 +4,13 @@ import { ChevronDown, Facebook, Instagram, CheckCircle2 } from "lucide-react";
 import { laafLocation } from "@/lib/site";
 import laafLogo from "@/assets/laaf-logo.png";
 
-const NEWSLETTER_KEY = "laaf_newsletter_subscribers";
-
-function getSubscribers(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem(NEWSLETTER_KEY) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-function addSubscriber(email: string): "added" | "duplicate" {
-  const subs = getSubscribers();
-  const normalised = email.trim().toLowerCase();
-  if (subs.includes(normalised)) return "duplicate";
-  subs.push(normalised);
-  localStorage.setItem(NEWSLETTER_KEY, JSON.stringify(subs));
-  return "added";
-}
-
 function FooterNewsletter({ className = "" }: { className?: string }) {
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState<"idle" | "success" | "duplicate">("idle");
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     setStatus("idle");
@@ -45,17 +26,26 @@ function FooterNewsletter({ className = "" }: { className?: string }) {
     }
 
     setPending(true);
-    // Simulate brief network delay for UX
-    setTimeout(() => {
-      const result = addSubscriber(trimmed);
+    try {
+      const res = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      const data = await res.json().catch(() => ({}));
       setPending(false);
-      if (result === "duplicate") {
-        setStatus("duplicate");
-      } else {
+      if (!res.ok) {
+        setError(data.statusMessage || "Something went wrong. Please try again.");
+        return;
+      }
+      if (data.status === "subscribed") {
         setStatus("success");
         setEmail("");
       }
-    }, 400);
+    } catch {
+      setPending(false);
+      setError("Network error. Please try again.");
+    }
   };
 
   if (status === "success") {
