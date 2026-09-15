@@ -15,11 +15,10 @@ const nav: { label: string; href: string; accent?: boolean }[] = [
   { label: "MODEST CO-ORD", href: "/collections/modest-co-ord" },
 ];
 
-const mobileShopLinks = [
-  { label: "All Abayas", to: "/collection" },
-  { label: "Sale", to: "/collection?sale=1" },
-  { label: "New Arrivals", to: "/collection?fresh=1" },
-];
+const mobileCollectionLinks = nav.map((item) => ({
+  label: item.label,
+  to: item.href,
+}));
 
 const mobileCompanyLinks = [
   { label: "About Us", to: "/about" },
@@ -336,7 +335,7 @@ export function Header() {
               <div className="text-[0.82rem] font-semibold uppercase tracking-[0.14em] text-zinc-500">
                 Shop
               </div>
-              {mobileShopLinks.map((item) => (
+              {mobileCollectionLinks.map((item) => (
                 <Link
                   key={item.label}
                   to={item.to}
