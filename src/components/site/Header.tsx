@@ -332,7 +332,7 @@ export function Header() {
             </button>
 
             <nav aria-label="Mobile" className="mt-14 flex flex-col gap-0">
-              {[...mobileCollectionLinks, ...mobileCompanyLinks].map((item) => (
+              {mobileCollectionLinks.map((item) => (
                 <Link
                   key={item.label}
                   to={item.to}
